@@ -11,7 +11,7 @@ import { mockAttractions, mockScores } from './mockData';
 dotenv.config();
 
 const app: Express = express();
-const port = process.env.PORT || 5001;
+const port = Number(process.env.PORT) || 5001;
 const prisma = new PrismaClient();
 
 app.use(cors());
@@ -93,6 +93,6 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
   });
 });
 
-app.listen(port, () => {
-  console.log(`[server]: Server is running at http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`[server]: Server is running at http://0.0.0.0:${port} (Accessible via network IP)`);
 });
