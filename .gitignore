@@ -1,0 +1,35 @@
+# Node modules
+node_modules/
+*/node_modules/
+
+# Environment Variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.env
+
+# API Keys and sensitive documents
+document/api_key.txt
+api_key.txt
+
+# Prisma generated
+backend/src/generated/prisma/
+*/src/generated/prisma/
+
+# Editor and OS files
+.vscode/
+.DS_Store
+*.swp
+.idea/
+
+# Build and Temp folders
+frontend/.next/
+frontend/out/
+backend/dist/
+backend/build/
+.temp/
+.tmp/
+tmp/
+.agents/

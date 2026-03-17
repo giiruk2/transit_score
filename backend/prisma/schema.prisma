@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// 1. 관광지 마스터 테이블 (Attraction)
+// 부산 관광명소 OpenAPI, TourAPI 등을 통해 1차적으로 수집된 정보 보관
+// ---------------------------------------------------------
+model Attraction {
+  id              String   @id @default(uuid())
+  contentId       String?  @unique // 공공데이터의 고유 ID (예: UC_SEQ 등)
+  name            String
+  address         String?
+  lat             Float    // 위도 (WGS84)
+  lng             Float    // 경도 (WGS84)
+  imageUrl        String?  // 대표 이미지
+  description     String?  @db.Text // 개요/설명 (긴 문장 허용)
+  phone           String?
+  homepage        String?
+  
+  // 무장애 정보 (TourAPI 보강용) / 0.0 ~ 1.0 (0.5=모름)
+  accessScore     Float    @default(0.5)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // 관계 설정 (이 관광지를 대상으로 한 점수 기록들)
+  scores          ScoreSnapshot[]
+}
+
+// ---------------------------------------------------------
+// 2. 접근성 점수 스냅샷 테이블 (ScoreSnapshot)
+// 특정 출발지(origin)에서 대상 관광지(Attraction)까지의 계산 결과 보관
+// ---------------------------------------------------------
+model ScoreSnapshot {
+  id             String   @id @default(uuid())
+  
+  // 어떤 관광지에 대한 점수인지
+  attractionId   String
+  attraction     Attraction @relation(fields: [attractionId], references: [id], onDelete: Cascade)
+
+  // 출발 기준점 정보 (예: "부산역", "해운대", 혹은 커스텀 좌표)
+  originName     String
+  originLat      Float
+  originLng      Float
+
+  // TMAP API 호출 등으로 계산된 원본 데이터 (분 단위)
+  totalTimeMin   Int      // 총 소요시간 (분)
+  transferCount  Int      // 환승 횟수
+  walkDistanceM  Int      // 도보 거리 (미터)
+  waitTimeMin    Int      // 대기/배차 시간 (분)
+
+  // 정규화 후 가중합 계산된 "최종 점수 (0~100)"
+  finalScore     Float
+
+  // 세부 점수 분해요소 (프론트엔드 막대그래프/배지 표시용, JSON 형태로 유연하게 저장)
+  breakdown      Json     // 예: { s_time: 0.82, s_transfer: 0.75, ... }
+
+  createdAt      DateTime @default(now())
+
+  // 단일 출발지-목적지에 대한 최근 점수 1건만 유지하기 위한 복합 키(옵션)
+  // @@unique([attractionId, originName])
+}
