@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Map, MapMarker } from 'react-kakao-maps-sdk';
 import axios from 'axios';
 import type { Attraction } from '@/app/page';
@@ -19,8 +19,10 @@ export default function MapViewer({
 }: MapViewerProps) {
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mapInstance, setMapInstance] = useState<any>(null);
   const [mapCenter, setMapCenter] = useState({ lat: 35.1152, lng: 129.0422 });
   const [mapLevel, setMapLevel] = useState(7);
+  const clustererRef = useRef<any>(null);
 
   useEffect(() => {
     const fetchAttractions = async () => {
@@ -47,7 +49,43 @@ export default function MapViewer({
     }
   }, [selectedAttraction]);
 
-  // 지도 클릭 → 출발지 설정 (항상 활성화)
+  // 지도 + 관광지 데이터 준비되면 클러스터러 생성
+  useEffect(() => {
+    if (!mapInstance || attractions.length === 0) return;
+    if (!window.kakao?.maps?.MarkerClusterer) return;
+
+    // 기존 클러스터러 제거
+    if (clustererRef.current) {
+      clustererRef.current.clear();
+    }
+
+    const markers = attractions.map((attraction) => {
+      const marker = new window.kakao.maps.Marker({
+        position: new window.kakao.maps.LatLng(attraction.lat, attraction.lng),
+        title: attraction.name,
+      });
+      window.kakao.maps.event.addListener(marker, 'click', () => {
+        onMarkerClick(attraction);
+      });
+      return marker;
+    });
+
+    const clusterer = new window.kakao.maps.MarkerClusterer({
+      map: mapInstance,
+      averageCenter: true,
+      minLevel: 7,
+      gridSize: 40,
+      markers,
+    });
+
+    clustererRef.current = clusterer;
+
+    return () => {
+      clusterer.clear();
+    };
+  }, [mapInstance, attractions, onMarkerClick]);
+
+  // 지도 클릭 → 출발지 설정
   const handleMapClick = (_map: any, mouseEvent: any) => {
     const lat = mouseEvent.latLng.getLat();
     const lng = mouseEvent.latLng.getLng();
@@ -85,6 +123,7 @@ export default function MapViewer({
       center={mapCenter}
       style={{ width: '100%', height: '100%' }}
       level={mapLevel}
+      onCreate={setMapInstance}
       onZoomChanged={(map) => setMapLevel(map.getLevel())}
       onCenterChanged={(map) => {
         const center = map.getCenter();
@@ -101,16 +140,6 @@ export default function MapViewer({
         }}
         title={`출발: ${currentOrigin.name}`}
       />
-
-      {/* 관광지 마커 */}
-      {attractions.map((attraction) => (
-        <MapMarker
-          key={attraction.id}
-          position={{ lat: attraction.lat, lng: attraction.lng }}
-          onClick={() => onMarkerClick(attraction)}
-          title={attraction.name}
-        />
-      ))}
     </Map>
   );
 }
