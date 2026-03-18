@@ -11,7 +11,7 @@ node_modules/
 *.env
 
 # API Keys and sensitive documents
-document/api_key.txt
+document/
 api_key.txt
 
 # Prisma generated
