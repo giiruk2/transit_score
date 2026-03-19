@@ -30,6 +30,9 @@ change_log.md
 # Logs
 logs/
 
+# Raw data dumps (local only)
+data/
+
 # Build and Temp folders
 frontend/.next/
 frontend/out/
