@@ -24,6 +24,12 @@ backend/src/generated/prisma/
 *.swp
 .idea/
 
+# Change log (local only)
+change_log.md
+
+# Logs
+logs/
+
 # Build and Temp folders
 frontend/.next/
 frontend/out/
