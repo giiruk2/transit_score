@@ -69,24 +69,39 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
   const destLat = parseFloat(destLatStr);
   const destLng = parseFloat(destLngStr);
 
-  // 2. ODsay 대중교통 경로 탐색 API 호출
-  const routeResult = await fetchOdsayRoute(originLat, originLng, destLat, destLng);
-  
-  if (!routeResult.success) {
-    return res.status(502).json({
-      success: false,
-      message: routeResult.message || "ODsay 경로 탐색 실패"
-    });
+  if ([originLat, originLng, destLat, destLng].some(isNaN)) {
+    return res.status(400).json({ success: false, message: "좌표값이 유효하지 않습니다." });
   }
 
-  // 3. 경로 데이터를 바탕으로 0~100점 정규화 가중합 산출
-  const scoreResult = calculateAccessibilityScore(routeResult);
+  // 2. DB에서 관광지의 무장애 점수 조회
+  let accessScore = 0.5;
+  try {
+    const attraction = await prisma.attraction.findFirst({
+      where: { OR: [{ contentId: attractionId }, { id: attractionId }] },
+      select: { accessScore: true }
+    });
+    if (attraction) accessScore = attraction.accessScore;
+  } catch (_) {
+    // DB 조회 실패 시 기본값 0.5 유지
+  }
 
-  // 4. 최종 결과 반환
+  // 3. ODsay 대중교통 경로 탐색 API 호출
+  let routeResult;
+  try {
+    routeResult = await fetchOdsayRoute(originLat, originLng, destLat, destLng);
+  } catch (error) {
+    console.error('fetchOdsayRoute 예외:', error);
+    return res.status(500).json({ success: false, message: '경로 탐색 중 서버 오류가 발생했습니다.' });
+  }
+
+  // 4. 경로 데이터를 바탕으로 0~100점 정규화 가중합 산출
+  const scoreResult = calculateAccessibilityScore(routeResult, accessScore);
+
+  // 5. 최종 결과 반환
   return res.json({
     success: true,
     data: {
-      attractionId, // 숫자가 아니라 문자열(string)로 반환하거나 원본 유지
+      attractionId,
       originLocation: { lat: originLat, lng: originLng },
       scoreDetails: scoreResult
     }

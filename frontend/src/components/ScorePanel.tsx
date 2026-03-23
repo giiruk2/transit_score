@@ -13,18 +13,67 @@ interface ScorePanelProps {
 interface ScoreDetails {
   finalScore: number;
   breakdown: {
-    timeScore: number;
-    transferScore: number;
-    walkScore: number;
-    waitScore: number;
+    s_time: number;
+    s_transfer: number;
+    s_walk: number;
+    s_wait: number;
   };
   rawParams: {
     totalTimeMin: number;
     transferCount: number;
     walkDistanceM: number;
+    walkTimeMin?: number;
     waitTimeMin: number;
+    hasLowFloor: boolean;
     isFallback?: boolean;
   };
+}
+
+interface WarningBadge {
+  icon: string;
+  label: string;
+  type: 'warn' | 'info' | 'good';
+  tooltip: string;
+}
+
+function getWarningBadges(raw: ScoreDetails['rawParams']): WarningBadge[] {
+  const badges: WarningBadge[] = [];
+
+  // 이동 시간
+  if (raw.totalTimeMin > 60) {
+    badges.push({ icon: '🕐', label: '이동 시간 김', type: 'warn', tooltip: `편도 ${raw.totalTimeMin}분 소요` });
+  }
+
+  // 환승
+  if (raw.transferCount >= 2) {
+    badges.push({ icon: '🔄', label: `환승 ${raw.transferCount}회`, type: 'warn', tooltip: '환승이 많아 이동이 복잡할 수 있습니다' });
+  } else if (raw.transferCount === 1) {
+    badges.push({ icon: '🔄', label: '환승 1회', type: 'info', tooltip: '1회 환승이 필요합니다' });
+  }
+
+  // 도보
+  if (raw.walkTimeMin !== undefined && raw.walkDistanceM > 0) {
+    // 토블러 기반 실질 도보시간이 평지 기준보다 20% 이상 길면 경사 경고
+    const flatTimeMin = (raw.walkDistanceM / 1000 / 5.04) * 60;
+    if (raw.walkTimeMin > flatTimeMin * 1.2) {
+      badges.push({ icon: '⛰️', label: '경사 구간 포함', type: 'warn', tooltip: `경사로로 실제 도보 ${Math.round(raw.walkTimeMin)}분 소요 (평지 대비 +${Math.round((raw.walkTimeMin / flatTimeMin - 1) * 100)}%)` });
+    }
+  }
+  if (raw.walkDistanceM > 600) {
+    badges.push({ icon: '🚶', label: '도보 많음', type: 'warn', tooltip: `총 도보 ${raw.walkDistanceM}m` });
+  }
+
+  // 대기
+  if (raw.waitTimeMin > 10) {
+    badges.push({ icon: '⏳', label: '대기 시간 김', type: 'warn', tooltip: `약 ${raw.waitTimeMin}분 대기 예상` });
+  }
+
+  // 저상버스
+  if (raw.hasLowFloor) {
+    badges.push({ icon: '♿', label: '저상버스 탑승 가능', type: 'good', tooltip: '휠체어·유모차 탑승이 가능한 저상버스가 운행 중입니다' });
+  }
+
+  return badges;
 }
 
 function getScoreGrade(score: number) {
@@ -34,14 +83,19 @@ function getScoreGrade(score: number) {
   return { label: '미흡', emoji: '🔴', color: 'var(--score-poor)' };
 }
 
-function ScoreBar({ label, value, maxValue, unit, color }: { label: string; value: number; maxValue: number; unit: string; color: string }) {
+function ScoreBar({ label, value, maxValue, unit, color, score }: { label: string; value: number; maxValue: number; unit: string; color: string; score?: number }) {
   const percentage = Math.min(100, Math.max(0, (value / maxValue) * 100));
   return (
-    <div className="mb-3">
+    <div className="mb-3" title={score !== undefined ? `점수: ${score.toFixed(2)}` : undefined}>
       <div className="flex justify-between items-center mb-1">
         <span className="text-[11px]" style={{ color: 'var(--sidebar-text-muted)' }}>{label}</span>
         <span className="text-[12px] font-semibold" style={{ color: 'var(--sidebar-text)' }}>
           {value}{unit}
+          {score !== undefined && (
+            <span className="ml-1 text-[10px] font-normal" style={{ color: 'var(--sidebar-text-muted)' }}>
+              ({(score * 100).toFixed(0)}점)
+            </span>
+          )}
         </span>
       </div>
       <div className="w-full h-2 rounded-full" style={{ background: 'var(--sidebar-surface)' }}>
@@ -196,15 +250,47 @@ export default function ScorePanel({ attraction, origin, onClose }: ScorePanelPr
                 </div>
               </div>
 
+              {/* 경고 배지 */}
+              {(() => {
+                const badges = getWarningBadges(scoreData.rawParams);
+                if (badges.length === 0) return null;
+                return (
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {badges.map((badge, i) => (
+                      <span
+                        key={i}
+                        title={badge.tooltip}
+                        className="text-[10px] px-2 py-1 rounded-full cursor-default select-none"
+                        style={{
+                          background: badge.type === 'good'
+                            ? 'rgba(34,197,94,0.12)'
+                            : badge.type === 'warn'
+                            ? 'rgba(249,115,22,0.12)'
+                            : 'rgba(99,102,241,0.12)',
+                          color: badge.type === 'good'
+                            ? '#22c55e'
+                            : badge.type === 'warn'
+                            ? 'var(--score-average)'
+                            : '#a5b4fc',
+                          border: `1px solid ${badge.type === 'good' ? 'rgba(34,197,94,0.25)' : badge.type === 'warn' ? 'rgba(249,115,22,0.25)' : 'rgba(99,102,241,0.25)'}`,
+                        }}
+                      >
+                        {badge.icon} {badge.label}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {/* 세부 점수 막대그래프 */}
               <div>
                 <p className="text-[11px] font-semibold mb-3" style={{ color: 'var(--sidebar-text)' }}>
                   세부 분석
                 </p>
-                <ScoreBar label="🕐 이동 시간" value={scoreData.rawParams.totalTimeMin} maxValue={120} unit="분" color="var(--accent)" />
-                <ScoreBar label="🔄 환승 횟수" value={scoreData.rawParams.transferCount} maxValue={4} unit="회" color="#8b5cf6" />
-                <ScoreBar label="🚶 도보 거리" value={scoreData.rawParams.walkDistanceM} maxValue={1200} unit="m" color="#06b6d4" />
-                <ScoreBar label="⏳ 대기 시간" value={scoreData.rawParams.waitTimeMin} maxValue={20} unit="분" color="#f59e0b" />
+                <ScoreBar label="🕐 이동 시간" value={scoreData.rawParams.totalTimeMin} maxValue={120} unit="분" color="var(--accent)" score={scoreData.breakdown.s_time} />
+                <ScoreBar label="🔄 환승 횟수" value={scoreData.rawParams.transferCount} maxValue={4} unit="회" color="#8b5cf6" score={scoreData.breakdown.s_transfer} />
+                <ScoreBar label="🚶 도보 거리" value={scoreData.rawParams.walkDistanceM} maxValue={1200} unit="m" color="#06b6d4" score={scoreData.breakdown.s_walk} />
+                <ScoreBar label="⏳ 대기 시간" value={scoreData.rawParams.waitTimeMin} maxValue={20} unit="분" color="#f59e0b" score={scoreData.breakdown.s_wait} />
               </div>
             </>
           )}
