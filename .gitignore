@@ -30,6 +30,9 @@ change_log.md
 # Logs
 logs/
 
+# Testing reports (local only)
+testing/
+
 # Raw data dumps (local only)
 data/
 
