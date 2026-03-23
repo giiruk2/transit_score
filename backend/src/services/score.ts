@@ -17,9 +17,26 @@ export interface FinalScoreResult {
  * 접근성 점수 정규화 및 가중합 계산 알고리즘
  * 0~100점 사이로 환산 (연구 보고서 수식 참조)
  */
+export interface Weights {
+  time: number;
+  transfer: number;
+  walk: number;
+  wait: number;
+  access: number;
+}
+
+export const DEFAULT_WEIGHTS: Weights = {
+  time: 0.45,
+  transfer: 0.20,
+  walk: 0.15,
+  wait: 0.10,
+  access: 0.10
+};
+
 export const calculateAccessibilityScore = (
-  routeData: RouteResult, 
-  accessScoreFactor: number = 0.5 // 무장애정보 기본값 (0.5 중립)
+  routeData: RouteResult,
+  accessScoreFactor: number = 0.5,
+  weights: Weights = DEFAULT_WEIGHTS
 ): FinalScoreResult => {
   // 1. 시간 점수 정규화 (T_best = 20분, T_worst = 120분)
   let s_time = 1 - (routeData.totalTimeMin - 20) / (120 - 20);
@@ -62,13 +79,12 @@ export const calculateAccessibilityScore = (
   const s_access = routeData.hasLowFloor ? 1.0 : accessScoreFactor;
 
   // 6. 가중합 기반 최종 점수 산출
-  // 시간 45%, 환승 20%, 도보 15%, 대기 10%, 무장애 10%
   const finalScoreRaw = 100 * (
-    0.45 * s_time +
-    0.20 * s_transfer +
-    0.15 * s_walk +
-    0.10 * s_wait +
-    0.10 * s_access
+    weights.time     * s_time +
+    weights.transfer * s_transfer +
+    weights.walk     * s_walk +
+    weights.wait     * s_wait +
+    weights.access   * s_access
   );
 
   return {

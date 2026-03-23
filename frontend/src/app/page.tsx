@@ -5,6 +5,8 @@ import MapViewer from '@/components/MapViewer';
 import SearchBar from '@/components/SearchBar';
 import AttractionList from '@/components/AttractionList';
 import ScorePanel from '@/components/ScorePanel';
+import WeightSurvey from '@/components/WeightSurvey';
+import { useWeights } from '@/hooks/useWeights';
 
 // 관광지 데이터 타입
 export interface Attraction {
@@ -59,7 +61,20 @@ export default function Home() {
     setSelectedAttraction(null);
   }, []);
 
+  const { weights, isCustom, saveWeights, resetWeights } = useWeights();
+  const [showSurvey, setShowSurvey] = useState(false);
+
   return (
+    <>
+    {showSurvey && (
+      <WeightSurvey
+        onComplete={(newWeights, cr) => {
+          saveWeights(newWeights, cr);
+          setShowSurvey(false);
+        }}
+        onClose={() => setShowSurvey(false)}
+      />
+    )}
     <main className="w-full h-screen flex overflow-hidden">
       <aside
         className="h-screen flex flex-col shrink-0"
@@ -107,6 +122,7 @@ export default function Home() {
               attraction={selectedAttraction}
               origin={currentOrigin}
               onClose={handleClosePanel}
+              weights={weights}
             />
           ) : (
             <AttractionList
@@ -128,10 +144,40 @@ export default function Home() {
           <span>총 {filteredAttractions.length}개 관광지</span>
           <span>출발: {currentOrigin.name}</span>
         </div>
+
       </aside>
 
       {/* 우측 지도 영역 */}
       <div className="flex-1 h-screen relative">
+        {/* 가중치 플로팅 버튼 */}
+        <div className="absolute top-4 right-4 z-[1000] flex flex-col items-end gap-1">
+          <button
+            onClick={() => setShowSurvey(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-semibold shadow-lg transition-all"
+            style={{
+              background: isCustom ? 'rgba(99,102,241,0.9)' : 'rgba(249,115,22,0.9)',
+              color: '#fff',
+              backdropFilter: 'blur(8px)',
+              border: `1px solid ${isCustom ? 'rgba(99,102,241,0.5)' : 'rgba(249,115,22,0.5)'}`,
+            }}
+          >
+            <span>{isCustom ? '⚙️' : '⚠️'}</span>
+            <span>{isCustom ? '맞춤 가중치 적용 중' : '기본 가중치 (임의값)'}</span>
+          </button>
+          {isCustom && (
+            <button
+              onClick={resetWeights}
+              className="text-[10px] px-2 py-0.5 rounded-lg"
+              style={{
+                background: 'rgba(0,0,0,0.5)',
+                color: 'rgba(255,255,255,0.6)',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              초기화
+            </button>
+          )}
+        </div>
         <MapViewer
           selectedAttraction={selectedAttraction}
           onMarkerClick={handleSelectAttraction}
@@ -141,5 +187,6 @@ export default function Home() {
         />
       </div>
     </main>
+    </>
   );
 }

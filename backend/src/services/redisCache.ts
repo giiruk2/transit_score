@@ -6,9 +6,12 @@ let redis: Redis | null = null;
 
 if (process.env.REDIS_URL) {
   redis = new Redis(process.env.REDIS_URL, { lazyConnect: true, enableReadyCheck: false });
-  redis.on('error', (err) => {
-    // Redis 연결 실패 시 조용히 비활성화 (서비스 중단 방지)
-    console.warn('Redis 연결 실패 (캐싱 비활성화):', err.message);
+  let warnedOnce = false;
+  redis.on('error', () => {
+    if (!warnedOnce) {
+      console.warn('[Redis] 연결 실패 — 캐싱 비활성화 (서비스는 정상 동작)');
+      warnedOnce = true;
+    }
     redis = null;
   });
 }

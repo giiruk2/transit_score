@@ -66,3 +66,28 @@ model ScoreSnapshot {
   // 단일 출발지-목적지에 대한 최근 점수 1건만 유지하기 위한 복합 키(옵션)
   // @@unique([attractionId, originName])
 }
+
+// ---------------------------------------------------------
+// 3. AHP 설문 응답 테이블 (WeightResponse)
+// 사용자가 입력한 쌍대비교 원본 응답값 수집
+// 향후 기하평균 집계로 기본 가중치 개선에 활용
+// ---------------------------------------------------------
+model WeightResponse {
+  id        String   @id @default(uuid())
+
+  // 10쌍 쌍대비교 응답값 (양수: 왼쪽이 더 중요, 역수: 오른쪽이 더 중요)
+  a12       Float    // 이동시간 vs 환승
+  a13       Float    // 이동시간 vs 도보
+  a14       Float    // 이동시간 vs 대기
+  a15       Float    // 이동시간 vs 접근성
+  a23       Float    // 환승 vs 도보
+  a24       Float    // 환승 vs 대기
+  a25       Float    // 환승 vs 접근성
+  a34       Float    // 도보 vs 대기
+  a35       Float    // 도보 vs 접근성
+  a45       Float    // 대기 vs 접근성
+
+  cr        Float    // 일관성 지수 (CR < 0.1인 응답만 저장)
+
+  createdAt DateTime @default(now())
+}

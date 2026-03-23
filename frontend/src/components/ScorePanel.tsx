@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import type { Attraction } from '@/app/page';
+import { Weights, DEFAULT_WEIGHTS } from '@/hooks/useWeights';
 
 interface ScorePanelProps {
   attraction: Attraction;
   origin: { name: string; lat: number; lng: number };
   onClose: () => void;
+  weights?: Weights;
 }
 
 interface ScoreDetails {
@@ -108,7 +110,7 @@ function ScoreBar({ label, value, maxValue, unit, color, score }: { label: strin
   );
 }
 
-export default function ScorePanel({ attraction, origin, onClose }: ScorePanelProps) {
+export default function ScorePanel({ attraction, origin, onClose, weights = DEFAULT_WEIGHTS }: ScorePanelProps) {
   const [scoreData, setScoreData] = useState<ScoreDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -127,6 +129,11 @@ export default function ScorePanel({ attraction, origin, onClose }: ScorePanelPr
             originLng: origin.lng,
             destLat: attraction.lat,
             destLng: attraction.lng,
+            w_time: weights.time,
+            w_transfer: weights.transfer,
+            w_walk: weights.walk,
+            w_wait: weights.wait,
+            w_access: weights.access,
           },
         });
 
@@ -143,7 +150,7 @@ export default function ScorePanel({ attraction, origin, onClose }: ScorePanelPr
     };
 
     fetchScore();
-  }, [attraction.id, origin.lat, origin.lng, attraction.lat, attraction.lng]);
+  }, [attraction.id, origin.lat, origin.lng, attraction.lat, attraction.lng, weights]);
 
   const grade = scoreData ? getScoreGrade(scoreData.finalScore) : null;
 
