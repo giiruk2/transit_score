@@ -6,6 +6,7 @@ interface OriginType {
   name: string;
   lat: number;
   lng: number;
+  dongKey?: string;
 }
 
 interface SearchBarProps {
@@ -29,13 +30,20 @@ export default function SearchBar({
     try {
       if (typeof window !== 'undefined' && window.kakao?.maps?.services) {
         const geocoder = new window.kakao.maps.services.Geocoder();
+        const extractDongKey = (addr: string): string | undefined => {
+          const match = addr.match(/(\S+구|\S+군)\s+(\S+동|\S+읍|\S+면)/);
+          return match ? `${match[1]} ${match[2]}` : undefined;
+        };
+
         geocoder.addressSearch(customAddress, (result: any, status: any) => {
           if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
             const { y, x } = result[0];
+            const addr = result[0].road_address?.address_name || result[0].address?.address_name || customAddress;
             onOriginChange({
               name: customAddress.length > 12 ? customAddress.slice(0, 12) + '...' : customAddress,
               lat: parseFloat(y),
               lng: parseFloat(x),
+              dongKey: extractDongKey(addr),
             });
             setCustomAddress('');
           } else {
@@ -43,10 +51,12 @@ export default function SearchBar({
             places.keywordSearch(customAddress, (placeResult: any, placeStatus: any) => {
               if (placeStatus === window.kakao.maps.services.Status.OK && placeResult.length > 0) {
                 const place = placeResult[0];
+                const addr = place.address_name || place.road_address_name || '';
                 onOriginChange({
                   name: place.place_name.length > 12 ? place.place_name.slice(0, 12) + '...' : place.place_name,
                   lat: parseFloat(place.y),
                   lng: parseFloat(place.x),
+                  dongKey: extractDongKey(addr),
                 });
                 setCustomAddress('');
               } else {
