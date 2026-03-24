@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Map, MapMarker } from 'react-kakao-maps-sdk';
+import { Map, MapMarker, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import axios from 'axios';
 import type { Attraction } from '@/app/page';
 
@@ -131,15 +131,46 @@ export default function MapViewer({
       }}
       onClick={handleMapClick}
     >
-      {/* 출발지 마커 (별) */}
-      <MapMarker
+      {/* 출발지 마커 (CustomOverlay) */}
+      <CustomOverlayMap
         position={{ lat: currentOrigin.lat, lng: currentOrigin.lng }}
-        image={{
-          src: 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
-          size: { width: 24, height: 35 },
-        }}
-        title={`출발: ${currentOrigin.name}`}
-      />
+        yAnchor={1.3}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
+          {/* 라벨 */}
+          <div style={{
+            background: 'rgba(249,115,22,0.95)',
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: 700,
+            padding: '3px 8px',
+            borderRadius: '999px',
+            marginBottom: '4px',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+          }}>
+            📍 {currentOrigin.name}
+          </div>
+          {/* 펄스 원 */}
+          <div style={{ position: 'relative', width: '20px', height: '20px' }}>
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              background: 'rgba(249,115,22,0.3)',
+              animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
+            }} />
+            <div style={{
+              position: 'absolute',
+              inset: '4px',
+              borderRadius: '50%',
+              background: 'rgba(249,115,22,1)',
+              border: '2px solid #fff',
+              boxShadow: '0 0 0 2px rgba(249,115,22,0.5)',
+            }} />
+          </div>
+        </div>
+      </CustomOverlayMap>
     </Map>
   );
 }

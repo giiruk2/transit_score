@@ -23,7 +23,7 @@ export interface AhpResult {
     access: number;
   };
   cr: number;
-  consistent: boolean; // CR < 0.1
+  consistent: boolean; // CR < 0.2
 }
 
 // n=5일 때 Saaty의 랜덤 일관성 지수
@@ -81,6 +81,6 @@ export function calculateAhp(inputs: AhpInputs): AhpResult {
       access:   parseFloat(w[4].toFixed(4)),
     },
     cr: parseFloat(cr.toFixed(4)),
-    consistent: cr < 0.1,
+    consistent: cr < 0.2,
   };
 }

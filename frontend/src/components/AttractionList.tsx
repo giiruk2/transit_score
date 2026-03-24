@@ -6,16 +6,38 @@ interface AttractionListProps {
   attractions: Attraction[];
   onSelect: (attraction: Attraction) => void;
   searchQuery: string;
+  // 실제 TransitScore (0~100). 향후 동별 사전계산 DB 데이터로 채워짐
+  scores: Record<string, number>;
+  // 출발지까지 직선 거리 (km). scores 없을 때 정렬 기준으로 사용
+  distances: Record<string, number>;
 }
 
-// 점수 등급 색상 (실제 점수는 클릭 후 ScorePanel에서 계산)
-function getScoreBadgeColor(index: number) {
-  // 임시: 리스트에서는 아이콘만 표시
-  const colors = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
-  return colors[index % colors.length];
+function ListBadge({ score, distanceKm }: { score: number | undefined; distanceKm: number | undefined }) {
+  // 실제 점수가 있으면 점수 배지
+  if (score !== undefined) {
+    const color =
+      score >= 80 ? 'var(--score-excellent)' :
+      score >= 60 ? 'var(--score-good)' :
+      score >= 40 ? 'var(--score-average)' :
+      'var(--score-poor)';
+    return (
+      <span className="text-[11px] font-bold tabular-nums" style={{ color }}>
+        {score}점
+      </span>
+    );
+  }
+  // 점수 없으면 거리 표시
+  if (distanceKm !== undefined) {
+    return (
+      <span className="text-[10px]" style={{ color: 'var(--sidebar-text-muted)' }}>
+        약 {distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`}
+      </span>
+    );
+  }
+  return null;
 }
 
-export default function AttractionList({ attractions, onSelect, searchQuery }: AttractionListProps) {
+export default function AttractionList({ attractions, onSelect, searchQuery, scores, distances }: AttractionListProps) {
   if (attractions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 text-center">
@@ -30,22 +52,28 @@ export default function AttractionList({ attractions, onSelect, searchQuery }: A
     );
   }
 
+  // 정렬 우선순위: 실제 점수(내림차순) > 거리(오름차순) > 원래 순서 유지
+  const sorted = [...attractions].sort((a, b) => {
+    const sa = scores[a.id];
+    const sb = scores[b.id];
+    if (sa !== undefined && sb !== undefined) return sb - sa;
+    if (sa !== undefined) return -1;
+    if (sb !== undefined) return 1;
+    const da = distances[a.id] ?? Infinity;
+    const db = distances[b.id] ?? Infinity;
+    return da - db;
+  });
+
   return (
     <div className="h-full overflow-y-auto custom-scrollbar px-3 py-2">
-      {attractions.map((attraction, index) => (
+      {sorted.map((attraction) => (
         <button
           key={attraction.id}
           onClick={() => onSelect(attraction)}
           className="w-full flex gap-3 p-3 rounded-xl mb-1.5 text-left transition-all group"
-          style={{
-            background: 'transparent',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--sidebar-surface)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
+          style={{ background: 'transparent' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-surface)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
         >
           {/* 썸네일 */}
           <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-gray-700">
@@ -72,13 +100,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery }: A
               {attraction.address}
             </p>
             <div className="flex items-center gap-1.5 mt-1.5">
-              <span
-                className="inline-block w-2 h-2 rounded-full"
-                style={{ background: getScoreBadgeColor(index) }}
-              />
-              <span className="text-[10px]" style={{ color: 'var(--sidebar-text-muted)' }}>
-                클릭하여 접근성 점수 확인
-              </span>
+              <ListBadge score={scores[attraction.id]} distanceKm={distances[attraction.id]} />
             </div>
           </div>
 

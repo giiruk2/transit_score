@@ -76,7 +76,7 @@ export default function WeightSurvey({ onComplete, onClose }: Props) {
     const result = calculateAhp(inputs);
 
     if (!result.consistent) {
-      setError(`응답이 일관되지 않습니다. (CR = ${result.cr.toFixed(3)}, 기준: 0.1 미만)\n처음부터 다시 응답해주세요.`);
+      setError(`응답이 일관되지 않습니다. (CR = ${result.cr.toFixed(3)}, 기준: 0.2 미만)\n처음부터 다시 응답해주세요.`);
       setStep(0);
       setAnswers({});
       return;

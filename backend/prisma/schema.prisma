@@ -68,7 +68,34 @@ model ScoreSnapshot {
 }
 
 // ---------------------------------------------------------
-// 3. AHP 설문 응답 테이블 (WeightResponse)
+// 3. 동별 관광지 점수 캐시 테이블 (DongScore)
+// 개발 중 클릭으로 누적되는 사전계산 결과 저장
+// 새 관광지 추가 시 해당 관광지 행만 누락 → 다음 조회 시 자동 보완
+// ---------------------------------------------------------
+model DongScore {
+  id           String   @id @default(uuid())
+
+  // 행정동 키 (예: "해운대구 중동")
+  dongKey      String
+
+  // 어떤 관광지의 점수인지
+  attractionId String
+
+  // 동 중심좌표에서 계산된 기본 점수 (0~100)
+  score        Float
+
+  // 계산에 사용된 동 중심 좌표
+  dongLat      Float
+  dongLng      Float
+
+  computedAt   DateTime @default(now())
+
+  @@unique([dongKey, attractionId])
+  @@index([dongKey])
+}
+
+// ---------------------------------------------------------
+// 4. AHP 설문 응답 테이블 (WeightResponse)
 // 사용자가 입력한 쌍대비교 원본 응답값 수집
 // 향후 기하평균 집계로 기본 가중치 개선에 활용
 // ---------------------------------------------------------

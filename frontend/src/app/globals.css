@@ -69,3 +69,8 @@ body {
 .animate-bar {
   animation: bar-grow 0.6s ease-out forwards;
 }
+
+/* 출발지 마커 펄스 */
+@keyframes ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import MapViewer from '@/components/MapViewer';
 import SearchBar from '@/components/SearchBar';
 import AttractionList from '@/components/AttractionList';
@@ -21,6 +21,16 @@ export interface Attraction {
 
 // 기본 출발지 (부산역)
 const defaultOrigin = { name: '부산역', lat: 35.1152, lng: 129.0422 };
+
+// 하버사인 직선 거리 계산 (km)
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function Home() {
   const [attractions, setAttractions] = useState<Attraction[]>([]);
@@ -63,6 +73,37 @@ export default function Home() {
 
   const { weights, isCustom, saveWeights, resetWeights } = useWeights();
   const [showSurvey, setShowSurvey] = useState(false);
+
+  // 동별 DB 점수 (출발지 동 변경 시 API 조회로 채워짐)
+  const [scores, setScores] = useState<Record<string, number>>({});
+
+  // 출발지 주소에서 "구 동" 키 추출 (예: "해운대구 중동")
+  const extractDongKey = useCallback((originName: string): string | null => {
+    const match = originName.match(/(\S+구|\S+군)\s+(\S+동|\S+읍|\S+면)/);
+    return match ? `${match[1]} ${match[2]}` : null;
+  }, []);
+
+  // 출발지 변경 시 동 점수 조회
+  useEffect(() => {
+    const dongKey = extractDongKey(currentOrigin.name);
+    if (!dongKey) return;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+    fetch(`${apiUrl}/api/dong-scores?dong=${encodeURIComponent(dongKey)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setScores(json.data);
+      })
+      .catch(() => {});
+  }, [currentOrigin, extractDongKey]);
+
+  // 거리 기반 보조 정렬값 (출발지 변경 시 즉시 재계산, API 0건)
+  const distances = useMemo<Record<string, number>>(() => {
+    const result: Record<string, number> = {};
+    attractions.forEach((a) => {
+      result[a.id] = haversineKm(currentOrigin.lat, currentOrigin.lng, a.lat, a.lng);
+    });
+    return result;
+  }, [attractions, currentOrigin]);
 
   return (
     <>
@@ -129,6 +170,8 @@ export default function Home() {
               attractions={filteredAttractions}
               onSelect={handleSelectAttraction}
               searchQuery={searchQuery}
+              scores={scores}
+              distances={distances}
             />
           )}
         </div>
@@ -161,8 +204,7 @@ export default function Home() {
               border: `1px solid ${isCustom ? 'rgba(99,102,241,0.5)' : 'rgba(249,115,22,0.5)'}`,
             }}
           >
-            <span>{isCustom ? '⚙️' : '⚠️'}</span>
-            <span>{isCustom ? '맞춤 가중치 적용 중' : '기본 가중치 (임의값)'}</span>
+            <span className="text-[13px]">{isCustom ? '맞춤 가중치 적용 중' : '내 기준으로 분석하기'}</span>
           </button>
           {isCustom && (
             <button

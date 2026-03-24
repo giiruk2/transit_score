@@ -8,6 +8,12 @@ import { fetchOdsayRoute } from './services/routeService';
 import { calculateAccessibilityScore, DEFAULT_WEIGHTS, Weights } from './services/score';
 import { mockAttractions, mockScores } from './mockData';
 
+// 동 중심좌표 JSON 로드
+const dongCentersPath = path.join(__dirname, '../../data/dong_centers.json');
+const dongCenters: Record<string, { lat: number; lng: number }> = fs.existsSync(dongCentersPath)
+  ? JSON.parse(fs.readFileSync(dongCentersPath, 'utf-8'))
+  : {};
+
 dotenv.config();
 
 const app: Express = express();
@@ -124,7 +130,69 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
   });
 });
 
-// 3. AHP 설문 응답 저장 API
+// 3. 동별 관광지 점수 조회 API
+// GET /api/dong-scores?dong=해운대구 중동
+// - DB에 캐시된 점수 반환
+// - 누락된 관광지는 ODsay로 계산 후 DB 저장
+app.get('/api/dong-scores', async (req: Request, res: Response): Promise<any> => {
+  const dongKey = req.query.dong as string;
+  if (!dongKey) {
+    return res.status(400).json({ success: false, message: 'dong 파라미터가 필요합니다.' });
+  }
+
+  const center = dongCenters[dongKey];
+  if (!center) {
+    return res.status(404).json({ success: false, message: `'${dongKey}'의 중심좌표를 찾을 수 없습니다.` });
+  }
+
+  // 전체 관광지 목록 조회
+  let allAttractions: { id: string; lat: number; lng: number; accessScore: number }[] = [];
+  try {
+    allAttractions = await prisma.attraction.findMany({
+      select: { id: true, lat: true, lng: true, accessScore: true }
+    });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 조회 오류' });
+  }
+
+  if (allAttractions.length === 0) {
+    return res.json({ success: true, data: {} });
+  }
+
+  // DB에서 이미 계산된 점수 조회
+  const existing = await prisma.dongScore.findMany({ where: { dongKey } });
+  const cachedMap: Record<string, number> = {};
+  existing.forEach((row) => { cachedMap[row.attractionId] = row.score; });
+
+  // 누락된 관광지만 계산 (ODsay 쿼터 절약)
+  const missing = allAttractions.filter((a) => cachedMap[a.id] === undefined);
+
+  if (missing.length > 0) {
+    // 5개씩 병렬 처리
+    const BATCH = 5;
+    for (let i = 0; i < missing.length; i += BATCH) {
+      const batch = missing.slice(i, i + BATCH);
+      await Promise.all(batch.map(async (attraction) => {
+        try {
+          const route = await fetchOdsayRoute(center.lat, center.lng, attraction.lat, attraction.lng);
+          const result = calculateAccessibilityScore(route, attraction.accessScore);
+          await prisma.dongScore.upsert({
+            where: { dongKey_attractionId: { dongKey, attractionId: attraction.id } },
+            create: { dongKey, attractionId: attraction.id, score: result.finalScore, dongLat: center.lat, dongLng: center.lng },
+            update: { score: result.finalScore, dongLat: center.lat, dongLng: center.lng, computedAt: new Date() }
+          });
+          cachedMap[attraction.id] = result.finalScore;
+        } catch {
+          // 단건 실패는 건너뜀
+        }
+      }));
+    }
+  }
+
+  return res.json({ success: true, data: cachedMap });
+});
+
+// 4. AHP 설문 응답 저장 API
 app.post('/api/weights', async (req: Request, res: Response): Promise<any> => {
   const { a12, a13, a14, a15, a23, a24, a25, a34, a35, a45, cr } = req.body;
 
@@ -132,8 +200,8 @@ app.post('/api/weights', async (req: Request, res: Response): Promise<any> => {
   if (fields.some((v) => typeof v !== 'number' || isNaN(v))) {
     return res.status(400).json({ success: false, message: '응답값이 올바르지 않습니다.' });
   }
-  if (cr >= 0.1) {
-    return res.status(400).json({ success: false, message: 'CR이 0.1 이상인 응답은 저장되지 않습니다.' });
+  if (cr >= 0.2) {
+    return res.status(400).json({ success: false, message: 'CR이 0.2 이상인 응답은 저장되지 않습니다.' });
   }
 
   try {
