@@ -119,10 +119,9 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
   // 5. 경로 데이터를 바탕으로 0~100점 정규화 가중합 산출
   const scoreResult = calculateAccessibilityScore(routeResult, accessScore, weights);
 
-  // 6. dongKey가 있으면 DongScore에 기본 가중치 점수 저장 (사용자 맞춤 가중치는 저장 안 함)
+  // 6. dongKey가 있으면 DongScore에 기본 가중치 점수 저장 (리스트 정렬 기준은 기본 가중치로 일관되게 유지)
   const dongKey = req.query.dongKey as string | undefined;
-  const isDefaultWeights = ![wTime, wTransfer, wWalk, wWait, wAccess].some(isNaN) === false;
-  if (dongKey && isDefaultWeights) {
+  if (dongKey) {
     const defaultResult = calculateAccessibilityScore(routeResult, accessScore);
     prisma.dongScore.upsert({
       where: { dongKey_attractionId: { dongKey, attractionId } },
