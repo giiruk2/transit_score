@@ -10,6 +10,7 @@ interface ScorePanelProps {
   origin: { name: string; lat: number; lng: number };
   onClose: () => void;
   weights?: Weights;
+  dongKey?: string;
 }
 
 interface ScoreDetails {
@@ -110,7 +111,7 @@ function ScoreBar({ label, value, maxValue, unit, color, score }: { label: strin
   );
 }
 
-export default function ScorePanel({ attraction, origin, onClose, weights = DEFAULT_WEIGHTS }: ScorePanelProps) {
+export default function ScorePanel({ attraction, origin, onClose, weights = DEFAULT_WEIGHTS, dongKey }: ScorePanelProps) {
   const [scoreData, setScoreData] = useState<ScoreDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -134,6 +135,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
             w_walk: weights.walk,
             w_wait: weights.wait,
             w_access: weights.access,
+            ...(dongKey ? { dongKey } : {}),
           },
         });
 

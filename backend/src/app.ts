@@ -119,7 +119,19 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
   // 5. 경로 데이터를 바탕으로 0~100점 정규화 가중합 산출
   const scoreResult = calculateAccessibilityScore(routeResult, accessScore, weights);
 
-  // 6. 최종 결과 반환
+  // 6. dongKey가 있으면 DongScore에 기본 가중치 점수 저장 (사용자 맞춤 가중치는 저장 안 함)
+  const dongKey = req.query.dongKey as string | undefined;
+  const isDefaultWeights = ![wTime, wTransfer, wWalk, wWait, wAccess].some(isNaN) === false;
+  if (dongKey && isDefaultWeights) {
+    const defaultResult = calculateAccessibilityScore(routeResult, accessScore);
+    prisma.dongScore.upsert({
+      where: { dongKey_attractionId: { dongKey, attractionId } },
+      create: { dongKey, attractionId, score: defaultResult.finalScore, dongLat: originLat, dongLng: originLng },
+      update: { score: defaultResult.finalScore, dongLat: originLat, dongLng: originLng, computedAt: new Date() }
+    }).catch(() => {});
+  }
+
+  // 7. 최종 결과 반환
   return res.json({
     success: true,
     data: {
@@ -130,66 +142,24 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
   });
 });
 
-// 3. 동별 관광지 점수 조회 API
+// 3. 동별 관광지 점수 조회 API (캐시 읽기 전용)
 // GET /api/dong-scores?dong=해운대구 중동
-// - DB에 캐시된 점수 반환
-// - 누락된 관광지는 ODsay로 계산 후 DB 저장
+// - DB에 저장된 점수만 반환 (새 계산 없음)
+// - 점수는 관광지 클릭(ScorePanel) 시 /api/score/:id에서 저장됨
 app.get('/api/dong-scores', async (req: Request, res: Response): Promise<any> => {
   const dongKey = req.query.dong as string;
   if (!dongKey) {
     return res.status(400).json({ success: false, message: 'dong 파라미터가 필요합니다.' });
   }
 
-  const center = dongCenters[dongKey];
-  if (!center) {
-    return res.status(404).json({ success: false, message: `'${dongKey}'의 중심좌표를 찾을 수 없습니다.` });
-  }
-
-  // 전체 관광지 목록 조회
-  let allAttractions: { id: string; lat: number; lng: number; accessScore: number }[] = [];
   try {
-    allAttractions = await prisma.attraction.findMany({
-      select: { id: true, lat: true, lng: true, accessScore: true }
-    });
+    const rows = await prisma.dongScore.findMany({ where: { dongKey } });
+    const data: Record<string, number> = {};
+    rows.forEach((row) => { data[row.attractionId] = row.score; });
+    return res.json({ success: true, data });
   } catch {
     return res.status(500).json({ success: false, message: 'DB 조회 오류' });
   }
-
-  if (allAttractions.length === 0) {
-    return res.json({ success: true, data: {} });
-  }
-
-  // DB에서 이미 계산된 점수 조회
-  const existing = await prisma.dongScore.findMany({ where: { dongKey } });
-  const cachedMap: Record<string, number> = {};
-  existing.forEach((row) => { cachedMap[row.attractionId] = row.score; });
-
-  // 누락된 관광지만 계산 (ODsay 쿼터 절약)
-  const missing = allAttractions.filter((a) => cachedMap[a.id] === undefined);
-
-  if (missing.length > 0) {
-    // 5개씩 병렬 처리
-    const BATCH = 5;
-    for (let i = 0; i < missing.length; i += BATCH) {
-      const batch = missing.slice(i, i + BATCH);
-      await Promise.all(batch.map(async (attraction) => {
-        try {
-          const route = await fetchOdsayRoute(center.lat, center.lng, attraction.lat, attraction.lng);
-          const result = calculateAccessibilityScore(route, attraction.accessScore);
-          await prisma.dongScore.upsert({
-            where: { dongKey_attractionId: { dongKey, attractionId: attraction.id } },
-            create: { dongKey, attractionId: attraction.id, score: result.finalScore, dongLat: center.lat, dongLng: center.lng },
-            update: { score: result.finalScore, dongLat: center.lat, dongLng: center.lng, computedAt: new Date() }
-          });
-          cachedMap[attraction.id] = result.finalScore;
-        } catch {
-          // 단건 실패는 건너뜀
-        }
-      }));
-    }
-  }
-
-  return res.json({ success: true, data: cachedMap });
 });
 
 // 4. AHP 설문 응답 저장 API

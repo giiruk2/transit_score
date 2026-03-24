@@ -164,6 +164,7 @@ export default function Home() {
               origin={currentOrigin}
               onClose={handleClosePanel}
               weights={weights}
+              dongKey={extractDongKey(currentOrigin.name) ?? undefined}
             />
           ) : (
             <AttractionList
