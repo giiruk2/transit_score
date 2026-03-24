@@ -20,7 +20,7 @@ export interface Attraction {
 }
 
 // 기본 출발지 (부산역)
-const defaultOrigin = { name: '부산역', lat: 35.1152, lng: 129.0422 };
+const defaultOrigin = { name: '부산역', lat: 35.1152, lng: 129.0422, dongKey: '동구 초량동' };
 
 // 하버사인 직선 거리 계산 (km)
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -36,7 +36,7 @@ export default function Home() {
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [filteredAttractions, setFilteredAttractions] = useState<Attraction[]>([]);
   const [selectedAttraction, setSelectedAttraction] = useState<Attraction | null>(null);
-  const [currentOrigin, setCurrentOrigin] = useState(defaultOrigin);
+  const [currentOrigin, setCurrentOrigin] = useState<{ name: string; lat: number; lng: number; dongKey?: string }>(defaultOrigin);
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleAttractionsLoaded = useCallback((data: Attraction[]) => {
@@ -62,7 +62,7 @@ export default function Home() {
     setSelectedAttraction(attraction);
   }, []);
 
-  const handleOriginChange = useCallback((origin: { name: string; lat: number; lng: number }) => {
+  const handleOriginChange = useCallback((origin: { name: string; lat: number; lng: number; dongKey?: string }) => {
     setCurrentOrigin(origin);
     setSelectedAttraction(null);
   }, []);
@@ -77,15 +77,9 @@ export default function Home() {
   // 동별 DB 점수 (출발지 동 변경 시 API 조회로 채워짐)
   const [scores, setScores] = useState<Record<string, number>>({});
 
-  // 출발지 주소에서 "구 동" 키 추출 (예: "해운대구 중동")
-  const extractDongKey = useCallback((originName: string): string | null => {
-    const match = originName.match(/(\S+구|\S+군)\s+(\S+동|\S+읍|\S+면)/);
-    return match ? `${match[1]} ${match[2]}` : null;
-  }, []);
-
   // 출발지 변경 시 동 점수 조회
   useEffect(() => {
-    const dongKey = extractDongKey(currentOrigin.name);
+    const dongKey = currentOrigin.dongKey;
     if (!dongKey) return;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
     fetch(`${apiUrl}/api/dong-scores?dong=${encodeURIComponent(dongKey)}`)
@@ -94,7 +88,7 @@ export default function Home() {
         if (json.success) setScores(json.data);
       })
       .catch(() => {});
-  }, [currentOrigin, extractDongKey]);
+  }, [currentOrigin]);
 
   // 거리 기반 보조 정렬값 (출발지 변경 시 즉시 재계산, API 0건)
   const distances = useMemo<Record<string, number>>(() => {
@@ -164,7 +158,7 @@ export default function Home() {
               origin={currentOrigin}
               onClose={handleClosePanel}
               weights={weights}
-              dongKey={extractDongKey(currentOrigin.name) ?? undefined}
+              dongKey={currentOrigin.dongKey}
             />
           ) : (
             <AttractionList

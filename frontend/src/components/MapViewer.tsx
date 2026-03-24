@@ -9,8 +9,8 @@ interface MapViewerProps {
   selectedAttraction: Attraction | null;
   onMarkerClick: (attraction: Attraction) => void;
   onAttractionsLoaded: (data: Attraction[]) => void;
-  currentOrigin: { name: string; lat: number; lng: number };
-  onOriginChange: (origin: { name: string; lat: number; lng: number }) => void;
+  currentOrigin: { name: string; lat: number; lng: number; dongKey?: string };
+  onOriginChange: (origin: { name: string; lat: number; lng: number; dongKey?: string }) => void;
 }
 
 export default function MapViewer({
@@ -94,13 +94,16 @@ export default function MapViewer({
       const geocoder = new window.kakao.maps.services.Geocoder();
       geocoder.coord2Address(lng, lat, (result: any, status: any) => {
         let name = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        let dongKey: string | undefined;
         if (status === window.kakao.maps.services.Status.OK && result[0]) {
           const addr = result[0].road_address?.address_name || result[0].address?.address_name;
           if (addr) {
             name = addr.length > 12 ? addr.slice(0, 12) + '...' : addr;
+            const match = addr.match(/(\S+구|\S+군)\s+(\S+동|\S+읍|\S+면)/);
+            if (match) dongKey = `${match[1]} ${match[2]}`;
           }
         }
-        onOriginChange({ name, lat, lng });
+        onOriginChange({ name, lat, lng, dongKey });
       });
     } else {
       onOriginChange({ name: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng });
