@@ -65,6 +65,7 @@ export default function Home() {
   const handleOriginChange = useCallback((origin: { name: string; lat: number; lng: number; dongKey?: string }) => {
     setCurrentOrigin(origin);
     setSelectedAttraction(null);
+    setScores({});
   }, []);
 
   const handleClosePanel = useCallback(() => {
