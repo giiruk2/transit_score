@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export interface Weights {
   time: number;
@@ -19,42 +20,68 @@ export const DEFAULT_WEIGHTS: Weights = {
 };
 
 const STORAGE_KEY = 'transitScore_weights';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 export function useWeights() {
   const [weights, setWeights] = useState<Weights>(DEFAULT_WEIGHTS);
   const [isCustom, setIsCustom] = useState(false);
 
-  // 로컬스토리지에서 저장된 가중치 로드
+  // 마운트 시 가중치 로드 (로그인 상태면 DB, 아니면 localStorage)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setWeights(parsed.weights);
-        setIsCustom(true);
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        try {
+          const res = await fetch(`${API_URL}/api/user-weights/${user.id}`);
+          const json = await res.json();
+          if (json.success && json.data) {
+            setWeights({ time: json.data.time, transfer: json.data.transfer, walk: json.data.walk, wait: json.data.wait, access: json.data.access });
+            setIsCustom(true);
+            return;
+          }
+        } catch { /* DB 실패 시 localStorage fallback */ }
       }
-    } catch {
-      // 파싱 실패 시 기본값 유지
-    }
+      // 비로그인 or DB 미저장 → localStorage
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setWeights(parsed.weights);
+          setIsCustom(true);
+        }
+      } catch { /* 파싱 실패 시 기본값 유지 */ }
+    };
+    load();
   }, []);
 
-  // 가중치 저장 (AHP 완료 시 호출)
-  const saveWeights = (newWeights: Weights, cr: number) => {
-    const data = {
-      weights: newWeights,
-      cr,
-      updatedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  const saveWeights = async (newWeights: Weights, cr: number) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ weights: newWeights, cr, updatedAt: new Date().toISOString() }));
     setWeights(newWeights);
     setIsCustom(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      fetch(`${API_URL}/api/user-weights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, ...newWeights, cr }),
+      }).catch(() => {});
+    }
   };
 
-  // 기본 가중치로 초기화
-  const resetWeights = () => {
+  const resetWeights = async () => {
     localStorage.removeItem(STORAGE_KEY);
     setWeights(DEFAULT_WEIGHTS);
     setIsCustom(false);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      fetch(`${API_URL}/api/user-weights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, ...DEFAULT_WEIGHTS, cr: 0 }),
+      }).catch(() => {});
+    }
   };
 
   return { weights, isCustom, saveWeights, resetWeights };

@@ -46,6 +46,9 @@ model ScoreSnapshot {
   attractionId   String
   attraction     Attraction @relation(fields: [attractionId], references: [id], onDelete: Cascade)
 
+  // 로그인 사용자 ID (비로그인 시 null)
+  userId         String?
+
   // 출발 기준점 정보 (예: "부산역", "해운대", 혹은 커스텀 좌표)
   originName     String
   originLat      Float
@@ -94,6 +97,23 @@ model DongScore {
 
   @@unique([dongKey, attractionId])
   @@index([dongKey])
+}
+
+// ---------------------------------------------------------
+// 5. 사용자별 AHP 가중치 저장 테이블 (UserWeight)
+// 구글 로그인 사용자의 개인 가중치 (1인 1행)
+// ---------------------------------------------------------
+model UserWeight {
+  id        String   @id @default(uuid())
+  userId    String   @unique  // Supabase Auth UUID
+  time      Float
+  transfer  Float
+  walk      Float
+  wait      Float
+  access    Float
+  cr        Float
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 // ---------------------------------------------------------

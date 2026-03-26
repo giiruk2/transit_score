@@ -130,7 +130,27 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
     }).catch(() => {});
   }
 
-  // 7. 최종 결과 반환
+  // 7. 로그인 사용자면 ScoreSnapshot 저장
+  const userId = req.query.userId as string | undefined;
+  if (userId) {
+    prisma.scoreSnapshot.create({
+      data: {
+        userId,
+        attractionId,
+        originName: req.query.originName as string || '',
+        originLat,
+        originLng,
+        totalTimeMin: scoreResult.rawParams.totalTimeMin,
+        transferCount: scoreResult.rawParams.transferCount,
+        walkDistanceM: scoreResult.rawParams.walkDistanceM,
+        waitTimeMin: scoreResult.rawParams.waitTimeMin,
+        finalScore: scoreResult.finalScore,
+        breakdown: scoreResult.breakdown as object,
+      }
+    }).catch(() => {});
+  }
+
+  // 8. 최종 결과 반환
   return res.json({
     success: true,
     data: {
@@ -181,6 +201,39 @@ app.post('/api/weights', async (req: Request, res: Response): Promise<any> => {
   } catch (error) {
     console.error('WeightResponse 저장 실패:', error);
     return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 5. 사용자 가중치 조회 API
+app.get('/api/user-weights/:userId', async (req: Request, res: Response): Promise<any> => {
+  const { userId } = req.params;
+  try {
+    const row = await prisma.userWeight.findUnique({ where: { userId } });
+    if (!row) return res.json({ success: true, data: null });
+    return res.json({
+      success: true,
+      data: { time: row.time, transfer: row.transfer, walk: row.walk, wait: row.wait, access: row.access, cr: row.cr }
+    });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 조회 오류' });
+  }
+});
+
+// 6. 사용자 가중치 저장/업데이트 API
+app.post('/api/user-weights', async (req: Request, res: Response): Promise<any> => {
+  const { userId, time, transfer, walk, wait, access, cr } = req.body;
+  if (!userId || [time, transfer, walk, wait, access, cr].some((v) => typeof v !== 'number' || isNaN(v))) {
+    return res.status(400).json({ success: false, message: '요청값이 올바르지 않습니다.' });
+  }
+  try {
+    await prisma.userWeight.upsert({
+      where: { userId },
+      create: { userId, time, transfer, walk, wait, access, cr },
+      update: { time, transfer, walk, wait, access, cr },
+    });
+    return res.json({ success: true });
+  } catch {
+    return res.status(500).json({ success: false, message: '저장 오류' });
   }
 });
 

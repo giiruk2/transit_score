@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import type { Attraction } from '@/app/page';
 import { Weights, DEFAULT_WEIGHTS } from '@/hooks/useWeights';
+import { supabase } from '@/lib/supabase';
 
 interface ScorePanelProps {
   attraction: Attraction;
@@ -124,6 +125,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
 
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+        const { data: { user } } = await supabase.auth.getUser();
         const response = await axios.get(`${apiUrl}/api/score/${attraction.id}`, {
           params: {
             originLat: origin.lat,
@@ -136,6 +138,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
             w_wait: weights.wait,
             w_access: weights.access,
             ...(dongKey ? { dongKey } : {}),
+            ...(user ? { userId: user.id, originName: origin.name } : {}),
           },
         });
 

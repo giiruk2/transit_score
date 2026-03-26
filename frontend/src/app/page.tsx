@@ -7,6 +7,7 @@ import AttractionList from '@/components/AttractionList';
 import ScorePanel from '@/components/ScorePanel';
 import WeightSurvey from '@/components/WeightSurvey';
 import { useWeights } from '@/hooks/useWeights';
+import LoginButton from '@/components/LoginButton';
 
 // 관광지 데이터 타입
 export interface Attraction {
@@ -140,6 +141,7 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
             <span className="text-[10px]" style={{ color: 'var(--sidebar-text-muted)' }}>LIVE</span>
+            <LoginButton />
           </div>
         </div>
 
