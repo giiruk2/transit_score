@@ -12,21 +12,8 @@ interface AttractionListProps {
   distances: Record<string, number>;
 }
 
-function ListBadge({ score, distanceKm }: { score: number | undefined; distanceKm: number | undefined }) {
-  // 실제 점수가 있으면 점수 배지
-  if (score !== undefined) {
-    const color =
-      score >= 80 ? 'var(--score-excellent)' :
-      score >= 60 ? 'var(--score-good)' :
-      score >= 40 ? 'var(--score-average)' :
-      'var(--score-poor)';
-    return (
-      <span className="text-[11px] font-bold tabular-nums" style={{ color }}>
-        {score}점
-      </span>
-    );
-  }
-  // 점수 없으면 거리 표시
+function ListBadge({ distanceKm }: { score: number | undefined; distanceKm: number | undefined }) {
+  // 항상 거리만 표시 (점수는 ScorePanel에서 확인)
   if (distanceKm !== undefined) {
     return (
       <span className="text-[10px]" style={{ color: 'var(--sidebar-text-muted)' }}>
