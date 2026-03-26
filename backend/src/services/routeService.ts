@@ -13,6 +13,7 @@ export interface RouteResult {
   success: boolean;
   message?: string;
   isFallback?: boolean;
+  fallbackReason?: 'tooClose' | 'apiError';
 }
 
 const BUSAN_BIMS_KEY = process.env.PUBLIC_DATA_API_KEY || '';
@@ -231,18 +232,27 @@ export const fetchOdsayRoute = async (
 
       return result;
     } else {
-      throw new Error("ODsay 응답에서 대중교통 수단 조회 결과를 찾을 수 없습니다.");
+      // 경로 없음 → 출발지와 목적지가 너무 가까운 경우
+      const distanceKm = getDistanceFromLatLonInKm(originLat, originLng, destLat, destLng);
+      const estimatedWalkM = Math.round(distanceKm * 1000);
+      return {
+        success: true,
+        isFallback: true,
+        fallbackReason: 'tooClose',
+        totalTimeMin: Math.max(3, Math.round((estimatedWalkM / 1000 / 5) * 60)),
+        transferCount: 0,
+        walkDistanceM: estimatedWalkM,
+        waitTimeMin: 0,
+        hasLowFloor: false
+      };
     }
 
   } catch (error: any) {
     console.error('ODsay 경로 호출 실패, 자체 추정 로직(Fallback) 가동:', error.response?.data || error.message);
-    
-    // [대체 로직] API 에러/만료 시 자체 직선 거리 기반 추정치 반환
+
     const distanceKm = getDistanceFromLatLonInKm(originLat, originLng, destLat, destLng);
-    
-    // 대중교통 평균 속도를 15km/h 로 가정하여 소요 시간(분) 계산
     const estimatedTimeMin = Math.max(5, Math.round((distanceKm / 15) * 60));
-    const estimatedWalkM = Math.round(distanceKm * 1000 * 0.15); // 직선 거리의 15% 정도는 걷는다고 가정
+    const estimatedWalkM = Math.round(distanceKm * 1000 * 0.15);
     let estimatedTransfers = 0;
     if (distanceKm > 10) estimatedTransfers = 1;
     if (distanceKm > 20) estimatedTransfers = 2;
@@ -251,6 +261,7 @@ export const fetchOdsayRoute = async (
       success: true,
       message: 'API 호출 실패: 자체 추정치로 계산되었습니다.',
       isFallback: true,
+      fallbackReason: 'apiError',
       totalTimeMin: estimatedTimeMin,
       transferCount: estimatedTransfers,
       walkDistanceM: estimatedWalkM,

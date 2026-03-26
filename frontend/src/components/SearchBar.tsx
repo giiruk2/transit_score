@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSavedOrigins } from '@/hooks/useSavedOrigins';
 
 interface OriginType {
   name: string;
@@ -21,6 +22,8 @@ export default function SearchBar({
 }: SearchBarProps) {
   const [customAddress, setCustomAddress] = useState('');
   const [searching, setSearching] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const { savedOrigins, save, remove, isLoggedIn } = useSavedOrigins();
 
   // 카카오 주소 검색 → 좌표 변환
   const handleAddressSearch = async () => {
@@ -109,9 +112,56 @@ export default function SearchBar({
           className="px-3 py-2 rounded-lg text-[12px] flex items-center gap-2 mb-2"
           style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid var(--accent)', color: 'var(--accent-light)' }}
         >
-          📍 <span className="font-semibold">{currentOrigin.name}</span>
-          <span className="text-[10px] opacity-70">({currentOrigin.lat.toFixed(4)}, {currentOrigin.lng.toFixed(4)})</span>
+          📍 <span className="font-semibold flex-1 truncate">{currentOrigin.name}</span>
+          {isLoggedIn && (
+            <button
+              onClick={() => save({ name: currentOrigin.name, lat: currentOrigin.lat, lng: currentOrigin.lng, dongKey: currentOrigin.dongKey })}
+              className="text-[10px] px-1.5 py-0.5 rounded shrink-0 transition-all"
+              style={{ background: 'rgba(59,130,246,0.3)', color: 'var(--accent-light)' }}
+              title="출발지 저장"
+            >
+              저장
+            </button>
+          )}
+          {isLoggedIn && savedOrigins.length > 0 && (
+            <button
+              onClick={() => setShowSaved((v) => !v)}
+              className="text-[10px] px-1.5 py-0.5 rounded shrink-0 transition-all"
+              style={{ background: 'rgba(59,130,246,0.3)', color: 'var(--accent-light)' }}
+            >
+              {showSaved ? '닫기' : `목록(${savedOrigins.length})`}
+            </button>
+          )}
         </div>
+
+        {/* 저장된 출발지 목록 */}
+        {showSaved && savedOrigins.length > 0 && (
+          <div className="mb-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--sidebar-border)' }}>
+            {savedOrigins.map((o) => (
+              <div
+                key={o.id}
+                className="flex items-center gap-2 px-3 py-2 text-[11px] cursor-pointer transition-all"
+                style={{ borderBottom: '1px solid var(--sidebar-border)', color: 'var(--sidebar-text)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-surface)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <span
+                  className="flex-1 truncate"
+                  onClick={() => { onOriginChange({ name: o.name, lat: o.lat, lng: o.lng, dongKey: o.dongKey }); setShowSaved(false); }}
+                >
+                  📍 {o.name}
+                </span>
+                <button
+                  onClick={() => remove(o.id)}
+                  className="shrink-0 text-[10px]"
+                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* 주소 입력 */}
         <div className="flex gap-1.5">

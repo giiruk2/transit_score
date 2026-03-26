@@ -1,14 +1,13 @@
 'use client';
 
 import type { Attraction } from '@/app/page';
+import { useFavorites } from '@/hooks/useFavorites';
 
 interface AttractionListProps {
   attractions: Attraction[];
   onSelect: (attraction: Attraction) => void;
   searchQuery: string;
-  // 실제 TransitScore (0~100). 향후 동별 사전계산 DB 데이터로 채워짐
   scores: Record<string, number>;
-  // 출발지까지 직선 거리 (km). scores 없을 때 정렬 기준으로 사용
   distances: Record<string, number>;
 }
 
@@ -25,6 +24,7 @@ function ListBadge({ distanceKm }: { score: number | undefined; distanceKm: numb
 }
 
 export default function AttractionList({ attractions, onSelect, searchQuery, scores, distances }: AttractionListProps) {
+  const { favorites, toggle, isLoggedIn } = useFavorites();
   if (attractions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 text-center">
@@ -54,13 +54,13 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
   return (
     <div className="h-full overflow-y-auto custom-scrollbar px-3 py-2">
       {sorted.map((attraction) => (
-        <button
+        <div
           key={attraction.id}
-          onClick={() => onSelect(attraction)}
-          className="w-full flex gap-3 p-3 rounded-xl mb-1.5 text-left transition-all group"
+          className="w-full flex gap-3 p-3 rounded-xl mb-1.5 text-left transition-all group cursor-pointer"
           style={{ background: 'transparent' }}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-surface)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+          onClick={() => onSelect(attraction)}
         >
           {/* 썸네일 */}
           <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-gray-700">
@@ -91,11 +91,20 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
             </div>
           </div>
 
-          {/* 화살표 */}
-          <div className="flex items-center text-gray-600 group-hover:text-gray-400 transition-colors">
-            <span className="text-xs">›</span>
+          {/* 즐겨찾기 + 화살표 */}
+          <div className="flex flex-col items-center justify-between gap-1">
+            {isLoggedIn && (
+              <button
+                onClick={(e) => { e.stopPropagation(); toggle(attraction.id); }}
+                className="text-sm leading-none transition-colors"
+                style={{ color: favorites.has(attraction.id) ? '#f43f5e' : 'rgba(255,255,255,0.2)' }}
+              >
+                {favorites.has(attraction.id) ? '♥' : '♡'}
+              </button>
+            )}
+            <span className="text-xs text-gray-600 group-hover:text-gray-400 transition-colors">›</span>
           </div>
-        </button>
+        </div>
       ))}
     </div>
   );

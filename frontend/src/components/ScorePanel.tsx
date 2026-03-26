@@ -5,6 +5,7 @@ import axios from 'axios';
 import type { Attraction } from '@/app/page';
 import { Weights, DEFAULT_WEIGHTS } from '@/hooks/useWeights';
 import { supabase } from '@/lib/supabase';
+import { useFavorites } from '@/hooks/useFavorites';
 
 interface ScorePanelProps {
   attraction: Attraction;
@@ -30,6 +31,7 @@ interface ScoreDetails {
     waitTimeMin: number;
     hasLowFloor: boolean;
     isFallback?: boolean;
+    fallbackReason?: 'tooClose' | 'apiError';
   };
 }
 
@@ -116,6 +118,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
   const [scoreData, setScoreData] = useState<ScoreDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const { favorites, toggle, isLoggedIn } = useFavorites();
 
   useEffect(() => {
     const fetchScore = async () => {
@@ -189,7 +192,18 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
 
       {/* 이름/주소 */}
       <div className="px-4 mb-4">
-        <h2 className="text-lg font-bold" style={{ color: 'var(--sidebar-text)' }}>{attraction.name}</h2>
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="text-lg font-bold" style={{ color: 'var(--sidebar-text)' }}>{attraction.name}</h2>
+          {isLoggedIn && (
+            <button
+              onClick={() => toggle(attraction.id)}
+              className="text-xl shrink-0 transition-colors"
+              style={{ color: favorites.has(attraction.id) ? '#f43f5e' : 'rgba(255,255,255,0.25)' }}
+            >
+              {favorites.has(attraction.id) ? '♥' : '♡'}
+            </button>
+          )}
+        </div>
         <p className="text-[12px] mt-1" style={{ color: 'var(--sidebar-text-muted)' }}>{attraction.address}</p>
       </div>
 
@@ -216,7 +230,15 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
           ) : (
             <>
               {/* Fallback 경고 */}
-              {scoreData.rawParams.isFallback && (
+              {scoreData.rawParams.isFallback && scoreData.rawParams.fallbackReason === 'tooClose' && (
+                <div
+                  className="text-[10px] px-3 py-2 rounded-lg mb-3"
+                  style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.2)' }}
+                >
+                  🚶 출발지와 목적지가 너무 가까워 <b>도보 이동 가능</b> 거리입니다.
+                </div>
+              )}
+              {scoreData.rawParams.isFallback && scoreData.rawParams.fallbackReason === 'apiError' && (
                 <div
                   className="text-[10px] px-3 py-2 rounded-lg mb-3"
                   style={{ background: 'rgba(249, 115, 22, 0.1)', color: 'var(--score-average)', border: '1px solid rgba(249, 115, 22, 0.2)' }}

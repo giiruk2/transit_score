@@ -204,7 +204,76 @@ app.post('/api/weights', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-// 5. 사용자 가중치 조회 API
+// 5. 즐겨찾기 조회 API
+app.get('/api/favorites/:userId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const rows = await prisma.favoriteAttraction.findMany({ where: { userId: req.params.userId } });
+    return res.json({ success: true, data: rows.map((r) => r.attractionId) });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 조회 오류' });
+  }
+});
+
+// 6. 즐겨찾기 추가 API
+app.post('/api/favorites', async (req: Request, res: Response): Promise<any> => {
+  const { userId, attractionId } = req.body;
+  if (!userId || !attractionId) return res.status(400).json({ success: false, message: '필수 파라미터 누락' });
+  try {
+    await prisma.favoriteAttraction.create({ data: { userId, attractionId } });
+    return res.json({ success: true });
+  } catch {
+    return res.json({ success: true }); // 이미 존재해도 무시
+  }
+});
+
+// 7. 즐겨찾기 삭제 API
+app.delete('/api/favorites', async (req: Request, res: Response): Promise<any> => {
+  const { userId, attractionId } = req.body;
+  if (!userId || !attractionId) return res.status(400).json({ success: false, message: '필수 파라미터 누락' });
+  try {
+    await prisma.favoriteAttraction.deleteMany({ where: { userId, attractionId } });
+    return res.json({ success: true });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 오류' });
+  }
+});
+
+// 8. 저장된 출발지 조회 API
+app.get('/api/saved-origins/:userId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const rows = await prisma.savedOrigin.findMany({
+      where: { userId: req.params.userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return res.json({ success: true, data: rows });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 조회 오류' });
+  }
+});
+
+// 9. 저장된 출발지 추가 API
+app.post('/api/saved-origins', async (req: Request, res: Response): Promise<any> => {
+  const { userId, name, lat, lng, dongKey } = req.body;
+  if (!userId || !name || lat == null || lng == null) return res.status(400).json({ success: false, message: '필수 파라미터 누락' });
+  try {
+    const row = await prisma.savedOrigin.create({ data: { userId, name, lat, lng, dongKey } });
+    return res.json({ success: true, data: row });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 오류' });
+  }
+});
+
+// 10. 저장된 출발지 삭제 API
+app.delete('/api/saved-origins/:id', async (req: Request, res: Response): Promise<any> => {
+  try {
+    await prisma.savedOrigin.delete({ where: { id: req.params.id } });
+    return res.json({ success: true });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 오류' });
+  }
+});
+
+// 11. 사용자 가중치 조회 API
 app.get('/api/user-weights/:userId', async (req: Request, res: Response): Promise<any> => {
   const { userId } = req.params;
   try {

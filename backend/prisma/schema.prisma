@@ -100,6 +100,34 @@ model DongScore {
 }
 
 // ---------------------------------------------------------
+// 6. 즐겨찾기 관광지 테이블 (FavoriteAttraction)
+// ---------------------------------------------------------
+model FavoriteAttraction {
+  id           String   @id @default(uuid())
+  userId       String
+  attractionId String
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, attractionId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------
+// 7. 저장된 출발지 테이블 (SavedOrigin)
+// ---------------------------------------------------------
+model SavedOrigin {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  lat       Float
+  lng       Float
+  dongKey   String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------
 // 5. 사용자별 AHP 가중치 저장 테이블 (UserWeight)
 // 구글 로그인 사용자의 개인 가중치 (1인 1행)
 // ---------------------------------------------------------
