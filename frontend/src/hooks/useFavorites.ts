@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getUser, onAuthStateChange } from '@/lib/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
@@ -11,7 +11,7 @@ export function useFavorites() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getUser();
       if (!user) return;
       setUserId(user.id);
       const res = await fetch(`${API_URL}/api/favorites/${user.id}`);
@@ -20,11 +20,11 @@ export function useFavorites() {
     };
     load();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (!session?.user) { setFavorites(new Set()); setUserId(null); }
+    const unsubscribe = onAuthStateChange((user) => {
+      if (!user) { setFavorites(new Set()); setUserId(null); }
       else load();
     });
-    return () => listener.subscription.unsubscribe();
+    return unsubscribe;
   }, []);
 
   const toggle = async (attractionId: string) => {

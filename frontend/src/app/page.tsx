@@ -18,6 +18,7 @@ export interface Attraction {
   lng: number;
   imageUrl?: string;
   description?: string;
+  category?: string;
 }
 
 // 기본 출발지 (부산역)

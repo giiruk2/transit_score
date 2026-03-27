@@ -22,6 +22,7 @@ model Attraction {
   lng             Float    // 경도 (WGS84)
   imageUrl        String?  // 대표 이미지
   description     String?  @db.Text // 개요/설명 (긴 문장 허용)
+  category        String?  // 카테고리 (자연, 바다/해변, 역사/전통, 문화/예술, 박물관, 종교, 공원/레저)
   phone           String?
   homepage        String?
   

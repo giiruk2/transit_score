@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getUser } from '@/lib/auth';
 
 export interface Weights {
   time: number;
@@ -26,10 +26,9 @@ export function useWeights() {
   const [weights, setWeights] = useState<Weights>(DEFAULT_WEIGHTS);
   const [isCustom, setIsCustom] = useState(false);
 
-  // 마운트 시 가중치 로드 (로그인 상태면 DB, 아니면 localStorage)
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getUser();
       if (user) {
         try {
           const res = await fetch(`${API_URL}/api/user-weights/${user.id}`);
@@ -41,7 +40,6 @@ export function useWeights() {
           }
         } catch { /* DB 실패 시 localStorage fallback */ }
       }
-      // 비로그인 or DB 미저장 → localStorage
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
@@ -59,7 +57,7 @@ export function useWeights() {
     setWeights(newWeights);
     setIsCustom(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getUser();
     if (user) {
       fetch(`${API_URL}/api/user-weights`, {
         method: 'POST',
@@ -74,7 +72,7 @@ export function useWeights() {
     setWeights(DEFAULT_WEIGHTS);
     setIsCustom(false);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getUser();
     if (user) {
       fetch(`${API_URL}/api/user-weights`, {
         method: 'POST',

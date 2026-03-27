@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getUser, onAuthStateChange } from '@/lib/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
@@ -19,7 +19,7 @@ export function useSavedOrigins() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getUser();
       if (!user) return;
       setUserId(user.id);
       const res = await fetch(`${API_URL}/api/saved-origins/${user.id}`);
@@ -28,11 +28,11 @@ export function useSavedOrigins() {
     };
     load();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (!session?.user) { setSavedOrigins([]); setUserId(null); }
+    const unsubscribe = onAuthStateChange((user) => {
+      if (!user) { setSavedOrigins([]); setUserId(null); }
       else load();
     });
-    return () => listener.subscription.unsubscribe();
+    return unsubscribe;
   }, []);
 
   const save = async (origin: Omit<SavedOrigin, 'id'>) => {

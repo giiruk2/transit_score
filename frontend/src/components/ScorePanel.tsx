@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import type { Attraction } from '@/app/page';
 import { Weights, DEFAULT_WEIGHTS } from '@/hooks/useWeights';
-import { supabase } from '@/lib/supabase';
+import { getUser } from '@/lib/auth';
 import { useFavorites } from '@/hooks/useFavorites';
 
 interface ScorePanelProps {
@@ -128,7 +128,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
 
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await getUser();
         const response = await axios.get(`${apiUrl}/api/score/${attraction.id}`, {
           params: {
             originLat: origin.lat,
