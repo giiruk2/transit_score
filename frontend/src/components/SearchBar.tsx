@@ -109,7 +109,7 @@ export default function SearchBar({
   };
 
   return (
-    <div className="px-4 py-3 shrink-0" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+    <div className="px-4 py-3 shrink-0 relative z-10" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
       {/* 관광지 검색 + 드롭다운 */}
       <div className="relative mb-3">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>

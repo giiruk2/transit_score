@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Map as KakaoMap, CustomOverlayMap } from 'react-kakao-maps-sdk';
+import { Map as KakaoMap, CustomOverlayMap, Polyline } from 'react-kakao-maps-sdk';
 import axios from 'axios';
 import type { Attraction } from '@/app/page';
 
@@ -190,27 +190,42 @@ export default function MapViewer({
       }}
       onClick={handleMapClick}
     >
+      {/* 출발지 → 목적지 점선 */}
+      {selectedAttraction && (
+        <Polyline
+          path={[
+            { lat: currentOrigin.lat, lng: currentOrigin.lng },
+            { lat: selectedAttraction.lat, lng: selectedAttraction.lng },
+          ]}
+          strokeWeight={2}
+          strokeColor="#818cf8"
+          strokeOpacity={0.8}
+          strokeStyle="dash"
+        />
+      )}
+
       {/* 출발지 마커 */}
-      <CustomOverlayMap position={{ lat: currentOrigin.lat, lng: currentOrigin.lng }} yAnchor={1.3}>
+      <CustomOverlayMap position={{ lat: currentOrigin.lat, lng: currentOrigin.lng }} yAnchor={0.85}>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
           <div style={{
-            background: 'rgba(249,115,22,0.95)', color: '#fff', fontSize: '11px', fontWeight: 700,
-            padding: '3px 8px', borderRadius: '999px', marginBottom: '4px',
-            whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+            background: 'rgba(249,115,22,1)', color: '#fff', fontSize: '12px', fontWeight: 800,
+            padding: '4px 10px', borderRadius: '999px', marginBottom: '6px',
+            whiteSpace: 'nowrap', boxShadow: '0 3px 10px rgba(0,0,0,0.5)',
+            letterSpacing: '0.01em',
           }}>
             📍 {currentOrigin.name}
           </div>
-          <div style={{ position: 'relative', width: '20px', height: '20px' }}>
+          <div style={{ position: 'relative', width: '28px', height: '28px' }}>
             <div style={{
               position: 'absolute', inset: 0, borderRadius: '50%',
-              background: 'rgba(249,115,22,0.3)',
+              background: 'rgba(249,115,22,0.4)',
               animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
             }} />
             <div style={{
-              position: 'absolute', inset: '4px', borderRadius: '50%',
-              background: 'rgba(249,115,22,1)', border: '2px solid #fff',
-              boxShadow: '0 0 0 2px rgba(249,115,22,0.5)',
+              position: 'absolute', inset: '5px', borderRadius: '50%',
+              background: 'rgba(249,115,22,1)', border: '2.5px solid #fff',
+              boxShadow: '0 0 0 2px rgba(249,115,22,0.6), 0 2px 8px rgba(0,0,0,0.4)',
             }} />
           </div>
         </div>
