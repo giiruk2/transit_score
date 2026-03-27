@@ -14,12 +14,19 @@ interface AttractionListProps {
 
 const CATEGORIES = ['전체', '자연', '바다/해변', '역사/전통', '문화/예술', '박물관', '종교', '공원/레저'];
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  '전체': '🗺️', '자연': '🌿', '바다/해변': '🌊', '역사/전통': '🏯',
-  '문화/예술': '🎨', '박물관': '🏛️', '종교': '⛩️', '공원/레저': '🎡',
+// 카테고리별 배경색 / 텍스트색
+const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
+  '전체':    { bg: 'rgba(99,102,241,0.2)',  text: '#a5b4fc' },
+  '자연':    { bg: 'rgba(34,197,94,0.2)',   text: '#86efac' },
+  '바다/해변':{ bg: 'rgba(14,165,233,0.2)', text: '#7dd3fc' },
+  '역사/전통':{ bg: 'rgba(234,179,8,0.2)',  text: '#fde047' },
+  '문화/예술':{ bg: 'rgba(236,72,153,0.2)', text: '#f9a8d4' },
+  '박물관':  { bg: 'rgba(168,85,247,0.2)',  text: '#d8b4fe' },
+  '종교':    { bg: 'rgba(249,115,22,0.2)',  text: '#fdba74' },
+  '공원/레저':{ bg: 'rgba(20,184,166,0.2)', text: '#5eead4' },
 };
 
-function ListBadge({ distanceKm }: { score: number | undefined; distanceKm: number | undefined }) {
+function ListBadge({ distanceKm }: { distanceKm: number | undefined }) {
   if (distanceKm !== undefined) {
     return (
       <span className="text-[10px]" style={{ color: 'var(--sidebar-text-muted)' }}>
@@ -67,20 +74,24 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
       {/* 카테고리 필터 */}
       <div className="px-3 pt-2 shrink-0">
         <div className="flex gap-1 overflow-x-auto pb-1 custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className="shrink-0 text-[10px] px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-              style={{
-                background: selectedCategory === cat ? 'var(--accent)' : 'var(--sidebar-surface)',
-                color: selectedCategory === cat ? '#fff' : 'var(--sidebar-text-muted)',
-                border: `1px solid ${selectedCategory === cat ? 'var(--accent)' : 'var(--sidebar-border)'}`,
-              }}
-            >
-              {CATEGORY_EMOJI[cat]} {cat}
-            </button>
-          ))}
+          {CATEGORIES.map((cat) => {
+            const isSelected = selectedCategory === cat;
+            const color = CATEGORY_COLOR[cat];
+            return (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className="shrink-0 text-[10px] px-2 py-1 rounded-lg transition-all whitespace-nowrap font-medium"
+                style={{
+                  background: isSelected ? color.bg : 'var(--sidebar-surface)',
+                  color: isSelected ? color.text : 'var(--sidebar-text-muted)',
+                  border: `1px solid ${isSelected ? color.text.replace(')', ', 0.4)').replace('rgb', 'rgba') : 'var(--sidebar-border)'}`,
+                }}
+              >
+                {cat}
+              </button>
+            );
+          })}
         </div>
 
         {/* 즐겨찾기 필터 */}
@@ -104,7 +115,6 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
       <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-2">
         {displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
-            <span className="text-3xl mb-2">{favOnly ? '♡' : CATEGORY_EMOJI[selectedCategory]}</span>
             <p className="text-sm font-medium" style={{ color: 'var(--sidebar-text)' }}>
               {favOnly ? '즐겨찾기가 없습니다' : `${selectedCategory} 관광지가 없습니다`}
             </p>
@@ -135,12 +145,18 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                   {attraction.address}
                 </p>
                 <div className="flex items-center gap-1.5 mt-1">
-                  {attraction.category && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--sidebar-surface)', color: 'var(--sidebar-text-muted)' }}>
-                      {CATEGORY_EMOJI[attraction.category]} {attraction.category}
-                    </span>
-                  )}
-                  <ListBadge score={scores[attraction.id]} distanceKm={distances[attraction.id]} />
+                  {attraction.category && (() => {
+                    const c = CATEGORY_COLOR[attraction.category] ?? { bg: 'rgba(100,100,100,0.2)', text: '#aaa' };
+                    return (
+                      <span
+                        className="text-[11.5px] px-2 py-0.5 rounded font-medium"
+                        style={{ background: c.bg, color: c.text }}
+                      >
+                        {attraction.category}
+                      </span>
+                    );
+                  })()}
+                  <ListBadge distanceKm={distances[attraction.id]} />
                 </div>
               </div>
 

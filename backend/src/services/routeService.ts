@@ -50,8 +50,8 @@ async function fetchBusArrivalInfo(bstopid: string): Promise<{ waitTimeMin: numb
 
     const waitTimeMin = mins.length > 0 ? Math.min(...mins) : 5;
 
-    // 최소 대기 버스의 저상버스 여부 확인 (lowplate1 === '1')
-    const minIdx = mins.indexOf(waitTimeMin);
+    // 최소 대기 버스의 저상버스 여부 확인 (arr에서 직접 탐색 - mins 필터링으로 인한 인덱스 불일치 방지)
+    const minIdx = arr.findIndex((it: any) => parseInt(it.min1, 10) === waitTimeMin);
     const hasLowFloor = minIdx >= 0 && arr[minIdx]?.lowplate1 === '1';
 
     return { waitTimeMin, hasLowFloor };
@@ -176,8 +176,8 @@ export const fetchOdsayRoute = async (
       },
       headers: {
         // ODsay 콘솔 Web 도메인에 등록된 정확한 URL 매칭
-        'Origin': 'http://localhost:5001',
-        'Referer': 'http://localhost:5001/'
+        'Origin': process.env.ODSAY_ORIGIN || 'http://localhost:5001',
+        'Referer': (process.env.ODSAY_ORIGIN || 'http://localhost:5001') + '/'
       }
     });
 

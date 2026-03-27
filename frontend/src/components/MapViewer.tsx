@@ -1,9 +1,24 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Map, MapMarker, CustomOverlayMap } from 'react-kakao-maps-sdk';
+import { Map as KakaoMap, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import axios from 'axios';
 import type { Attraction } from '@/app/page';
+
+const SELECTED_MARKER_SRC = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="52">
+    <path d="M20 0C9 0 0 9 0 20c0 15 20 32 20 32s20-17 20-32C40 9 31 0 20 0z" fill="#6366f1" stroke="white" stroke-width="2"/>
+    <circle cx="20" cy="20" r="9" fill="white"/>
+    <circle cx="20" cy="20" r="5.5" fill="#6366f1"/>
+  </svg>`
+)}`;
+
+const DEFAULT_MARKER_SRC = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="30">
+    <path d="M11 0C4.9 0 0 4.9 0 11c0 8.25 11 19 11 19s11-10.75 11-19C22 4.9 17.1 0 11 0z" fill="#ef4444" stroke="white" stroke-width="1.5"/>
+    <circle cx="11" cy="11" r="4" fill="white"/>
+  </svg>`
+)}`;
 
 interface MapViewerProps {
   selectedAttraction: Attraction | null;
@@ -23,6 +38,8 @@ export default function MapViewer({
   const [mapCenter, setMapCenter] = useState({ lat: 35.1152, lng: 129.0422 });
   const [mapLevel, setMapLevel] = useState(7);
   const clustererRef = useRef<any>(null);
+  const markersRef = useRef<Map<string, any>>(new Map());
+  const prevSelectedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchAttractions = async () => {
@@ -49,24 +66,30 @@ export default function MapViewer({
     }
   }, [selectedAttraction]);
 
-  // 지도 + 관광지 데이터 준비되면 클러스터러 생성
+  // 클러스터러 생성 (커스텀 마커 이미지 적용)
   useEffect(() => {
     if (!mapInstance || attractions.length === 0) return;
     if (!window.kakao?.maps?.MarkerClusterer) return;
 
-    // 기존 클러스터러 제거
-    if (clustererRef.current) {
-      clustererRef.current.clear();
-    }
+    if (clustererRef.current) clustererRef.current.clear();
+    markersRef.current.clear();
+
+    const defaultImg = new window.kakao.maps.MarkerImage(
+      DEFAULT_MARKER_SRC,
+      new window.kakao.maps.Size(22, 30),
+      { offset: new window.kakao.maps.Point(11, 30) }
+    );
 
     const markers = attractions.map((attraction) => {
       const marker = new window.kakao.maps.Marker({
         position: new window.kakao.maps.LatLng(attraction.lat, attraction.lng),
         title: attraction.name,
+        image: defaultImg,
       });
       window.kakao.maps.event.addListener(marker, 'click', () => {
         onMarkerClick(attraction);
       });
+      markersRef.current.set(attraction.id, marker);
       return marker;
     });
 
@@ -79,11 +102,44 @@ export default function MapViewer({
     });
 
     clustererRef.current = clusterer;
-
-    return () => {
-      clusterer.clear();
-    };
+    return () => { clusterer.clear(); };
   }, [mapInstance, attractions, onMarkerClick]);
+
+  // 선택된 마커 하이라이트
+  useEffect(() => {
+    if (!mapInstance || markersRef.current.size === 0) return;
+
+    // 이전 선택 마커 복원
+    if (prevSelectedIdRef.current) {
+      const prev = markersRef.current.get(prevSelectedIdRef.current);
+      if (prev) {
+        const defaultImg = new window.kakao.maps.MarkerImage(
+          DEFAULT_MARKER_SRC,
+          new window.kakao.maps.Size(22, 30),
+          { offset: new window.kakao.maps.Point(11, 30) }
+        );
+        prev.setImage(defaultImg);
+        prev.setZIndex(1);
+      }
+    }
+
+    // 새 선택 마커 하이라이트
+    if (selectedAttraction) {
+      const marker = markersRef.current.get(selectedAttraction.id);
+      if (marker) {
+        const selectedImg = new window.kakao.maps.MarkerImage(
+          SELECTED_MARKER_SRC,
+          new window.kakao.maps.Size(40, 52),
+          { offset: new window.kakao.maps.Point(20, 52) }
+        );
+        marker.setImage(selectedImg);
+        marker.setZIndex(100);
+      }
+      prevSelectedIdRef.current = selectedAttraction.id;
+    } else {
+      prevSelectedIdRef.current = null;
+    }
+  }, [selectedAttraction, mapInstance]);
 
   // 지도 클릭 → 출발지 설정
   const handleMapClick = (_map: any, mouseEvent: any) => {
@@ -122,7 +178,7 @@ export default function MapViewer({
   }
 
   return (
-    <Map
+    <KakaoMap
       center={mapCenter}
       style={{ width: '100%', height: '100%' }}
       level={mapLevel}
@@ -134,46 +190,31 @@ export default function MapViewer({
       }}
       onClick={handleMapClick}
     >
-      {/* 출발지 마커 (CustomOverlay) */}
-      <CustomOverlayMap
-        position={{ lat: currentOrigin.lat, lng: currentOrigin.lng }}
-        yAnchor={1.3}
-      >
+      {/* 출발지 마커 */}
+      <CustomOverlayMap position={{ lat: currentOrigin.lat, lng: currentOrigin.lng }} yAnchor={1.3}>
+
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
-          {/* 라벨 */}
           <div style={{
-            background: 'rgba(249,115,22,0.95)',
-            color: '#fff',
-            fontSize: '11px',
-            fontWeight: 700,
-            padding: '3px 8px',
-            borderRadius: '999px',
-            marginBottom: '4px',
-            whiteSpace: 'nowrap',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+            background: 'rgba(249,115,22,0.95)', color: '#fff', fontSize: '11px', fontWeight: 700,
+            padding: '3px 8px', borderRadius: '999px', marginBottom: '4px',
+            whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
           }}>
             📍 {currentOrigin.name}
           </div>
-          {/* 펄스 원 */}
           <div style={{ position: 'relative', width: '20px', height: '20px' }}>
             <div style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '50%',
+              position: 'absolute', inset: 0, borderRadius: '50%',
               background: 'rgba(249,115,22,0.3)',
               animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
             }} />
             <div style={{
-              position: 'absolute',
-              inset: '4px',
-              borderRadius: '50%',
-              background: 'rgba(249,115,22,1)',
-              border: '2px solid #fff',
+              position: 'absolute', inset: '4px', borderRadius: '50%',
+              background: 'rgba(249,115,22,1)', border: '2px solid #fff',
               boxShadow: '0 0 0 2px rgba(249,115,22,0.5)',
             }} />
           </div>
         </div>
       </CustomOverlayMap>
-    </Map>
+    </KakaoMap>
   );
 }

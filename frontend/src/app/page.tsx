@@ -152,6 +152,8 @@ export default function Home() {
           onSearch={handleSearch}
           currentOrigin={currentOrigin}
           onOriginChange={handleOriginChange}
+          attractions={attractions}
+          onSelectAttraction={handleSelectAttraction}
         />
 
         {/* 관광지 리스트 또는 상세 패널 */}

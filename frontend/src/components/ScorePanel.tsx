@@ -7,6 +7,16 @@ import { Weights, DEFAULT_WEIGHTS } from '@/hooks/useWeights';
 import { getUser } from '@/lib/auth';
 import { useFavorites } from '@/hooks/useFavorites';
 
+const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
+  '자연':    { bg: 'rgba(34,197,94,0.2)',   text: '#86efac' },
+  '바다/해변':{ bg: 'rgba(14,165,233,0.2)', text: '#7dd3fc' },
+  '역사/전통':{ bg: 'rgba(234,179,8,0.2)',  text: '#fde047' },
+  '문화/예술':{ bg: 'rgba(236,72,153,0.2)', text: '#f9a8d4' },
+  '박물관':  { bg: 'rgba(168,85,247,0.2)',  text: '#d8b4fe' },
+  '종교':    { bg: 'rgba(249,115,22,0.2)',  text: '#fdba74' },
+  '공원/레저':{ bg: 'rgba(20,184,166,0.2)', text: '#5eead4' },
+};
+
 interface ScorePanelProps {
   attraction: Attraction;
   origin: { name: string; lat: number; lng: number };
@@ -205,6 +215,17 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
           )}
         </div>
         <p className="text-[12px] mt-1" style={{ color: 'var(--sidebar-text-muted)' }}>{attraction.address}</p>
+        {attraction.category && (() => {
+          const c = CATEGORY_COLOR[attraction.category] ?? { bg: 'rgba(100,100,100,0.2)', text: '#aaa' };
+          return (
+            <span
+              className="inline-block mt-2 text-sm px-3 py-1 rounded-lg font-semibold"
+              style={{ background: c.bg, color: c.text }}
+            >
+              {attraction.category}
+            </span>
+          );
+        })()}
       </div>
 
       {/* 점수 영역 */}
