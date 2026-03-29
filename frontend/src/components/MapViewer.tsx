@@ -26,11 +26,12 @@ interface MapViewerProps {
   onAttractionsLoaded: (data: Attraction[]) => void;
   currentOrigin: { name: string; lat: number; lng: number; dongKey?: string };
   onOriginChange: (origin: { name: string; lat: number; lng: number; dongKey?: string }) => void;
+  selectedCategory: string | null;
 }
 
 export default function MapViewer({
   selectedAttraction, onMarkerClick, onAttractionsLoaded,
-  currentOrigin, onOriginChange,
+  currentOrigin, onOriginChange, selectedCategory,
 }: MapViewerProps) {
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +81,11 @@ export default function MapViewer({
       { offset: new window.kakao.maps.Point(11, 30) }
     );
 
-    const markers = attractions.map((attraction) => {
+    const filtered = selectedCategory
+      ? attractions.filter((a) => a.category === selectedCategory)
+      : attractions;
+
+    const markers = filtered.map((attraction) => {
       const marker = new window.kakao.maps.Marker({
         position: new window.kakao.maps.LatLng(attraction.lat, attraction.lng),
         title: attraction.name,
@@ -103,7 +108,7 @@ export default function MapViewer({
 
     clustererRef.current = clusterer;
     return () => { clusterer.clear(); };
-  }, [mapInstance, attractions, onMarkerClick]);
+  }, [mapInstance, attractions, onMarkerClick, selectedCategory]);
 
   // 선택된 마커 하이라이트
   useEffect(() => {

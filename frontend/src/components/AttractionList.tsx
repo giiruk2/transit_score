@@ -10,9 +10,9 @@ interface AttractionListProps {
   searchQuery: string;
   scores: Record<string, number>;
   distances: Record<string, number>;
+  selectedCategory: string | null;
+  onCategoryChange: (cat: string | null) => void;
 }
-
-const CATEGORIES = ['전체', '자연', '바다/해변', '역사/전통', '문화/예술', '박물관', '종교', '공원/레저'];
 
 // 카테고리별 배경색 / 텍스트색
 const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
@@ -26,6 +26,13 @@ const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
   '공원/레저':{ bg: 'rgba(20,184,166,0.2)', text: '#5eead4' },
 };
 
+// 이름 길이에 따라 폰트 크기 동적 조정
+function nameFontSize(name: string): string {
+  if (name.length <= 9) return '15px';
+  if (name.length <= 14) return '13px';
+  return '11.5px';
+}
+
 function ListBadge({ distanceKm }: { distanceKm: number | undefined }) {
   if (distanceKm !== undefined) {
     return (
@@ -37,10 +44,32 @@ function ListBadge({ distanceKm }: { distanceKm: number | undefined }) {
   return null;
 }
 
-export default function AttractionList({ attractions, onSelect, searchQuery, scores, distances }: AttractionListProps) {
+// 레이아웃 토글 아이콘 SVG
+function IconList() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+      <rect x="1" y="2" width="13" height="2" rx="1" fill="currentColor"/>
+      <rect x="1" y="6.5" width="13" height="2" rx="1" fill="currentColor"/>
+      <rect x="1" y="11" width="13" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  );
+}
+
+function IconGrid() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+      <rect x="1" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/>
+      <rect x="8.5" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/>
+      <rect x="1" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor"/>
+      <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor"/>
+    </svg>
+  );
+}
+
+export default function AttractionList({ attractions, onSelect, searchQuery, scores, distances, selectedCategory, onCategoryChange }: AttractionListProps) {
   const { favorites, toggle, isLoggedIn } = useFavorites();
   const [favOnly, setFavOnly] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('전체');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const sorted = [...attractions].sort((a, b) => {
     const sa = scores[a.id];
@@ -54,7 +83,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
   });
 
   const displayed = sorted
-    .filter((a) => selectedCategory === '전체' || a.category === selectedCategory)
+    .filter((a) => !selectedCategory || a.category === selectedCategory)
     .filter((a) => !favOnly || favorites.has(a.id));
 
   if (attractions.length === 0) {
@@ -71,31 +100,9 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* 카테고리 필터 */}
-      <div className="px-3 pt-2 shrink-0">
-        <div className="flex gap-1 overflow-x-auto pb-1 custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat;
-            const color = CATEGORY_COLOR[cat];
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className="shrink-0 text-[10px] px-2 py-1 rounded-lg transition-all whitespace-nowrap font-medium"
-                style={{
-                  background: isSelected ? color.bg : 'var(--sidebar-surface)',
-                  color: isSelected ? color.text : 'var(--sidebar-text-muted)',
-                  border: `1px solid ${isSelected ? color.text.replace(')', ', 0.4)').replace('rgb', 'rgba') : 'var(--sidebar-border)'}`,
-                }}
-              >
-                {cat}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 즐겨찾기 필터 */}
-        {isLoggedIn && (
+      {/* 툴바: 즐겨찾기 필터 + 레이아웃 토글 */}
+      <div className="px-3 pt-2 shrink-0 flex items-center justify-between">
+        {isLoggedIn ? (
           <button
             onClick={() => setFavOnly((v) => !v)}
             className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg transition-all mt-1.5"
@@ -108,10 +115,41 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
             {favOnly ? '♥' : '♡'} 즐겨찾기만 보기
             {favOnly && favorites.size > 0 && <span className="text-[10px] opacity-70">({favorites.size})</span>}
           </button>
+        ) : (
+          <div />
         )}
+
+        {/* 레이아웃 토글 */}
+        <div
+          className="flex items-center mt-1.5 rounded-lg overflow-hidden"
+          style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}
+        >
+          <button
+            onClick={() => setViewMode('list')}
+            className="flex items-center justify-center w-7 h-7 transition-colors"
+            style={{
+              color: viewMode === 'list' ? 'var(--accent)' : 'var(--sidebar-text-muted)',
+              background: viewMode === 'list' ? 'rgba(99,102,241,0.15)' : 'transparent',
+            }}
+            title="리스트 보기"
+          >
+            <IconList />
+          </button>
+          <button
+            onClick={() => setViewMode('grid')}
+            className="flex items-center justify-center w-7 h-7 transition-colors"
+            style={{
+              color: viewMode === 'grid' ? 'var(--accent)' : 'var(--sidebar-text-muted)',
+              background: viewMode === 'grid' ? 'rgba(99,102,241,0.15)' : 'transparent',
+            }}
+            title="그리드 보기"
+          >
+            <IconGrid />
+          </button>
+        </div>
       </div>
 
-      {/* 리스트 */}
+      {/* 콘텐츠 */}
       <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-2">
         {displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
@@ -119,61 +157,133 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
               {favOnly ? '즐겨찾기가 없습니다' : `${selectedCategory} 관광지가 없습니다`}
             </p>
           </div>
+        ) : viewMode === 'grid' ? (
+          /* ── 그리드 뷰 ── */
+          <div className="grid grid-cols-2 gap-2">
+            {displayed.map((attraction) => {
+              const c = attraction.category
+                ? (CATEGORY_COLOR[attraction.category] ?? { bg: 'rgba(100,100,100,0.2)', text: '#aaa' })
+                : null;
+              return (
+                <div
+                  key={attraction.id}
+                  className="rounded-xl overflow-hidden cursor-pointer transition-all"
+                  style={{ background: 'var(--sidebar-surface)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                  onClick={() => onSelect(attraction)}
+                >
+                  {/* 이미지 1:1 */}
+                  <div className="relative w-full" style={{ paddingBottom: '100%' }}>
+                    <div className="absolute inset-0 bg-gray-800">
+                      {attraction.imageUrl ? (
+                        <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-500 text-2xl">📍</div>
+                      )}
+                    </div>
+                    {isLoggedIn && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggle(attraction.id); }}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded-full text-xs transition-colors"
+                        style={{
+                          background: 'rgba(0,0,0,0.45)',
+                          color: favorites.has(attraction.id) ? '#f43f5e' : 'rgba(255,255,255,0.5)',
+                        }}
+                      >
+                        {favorites.has(attraction.id) ? '♥' : '♡'}
+                      </button>
+                    )}
+                  </div>
+                  {/* 이름 + 뱃지 */}
+                  <div className="px-2 py-2">
+                    <h3 className="text-xs font-semibold leading-tight line-clamp-2" style={{ color: 'var(--sidebar-text)' }}>
+                      {attraction.name}
+                    </h3>
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      {c && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: c.bg, color: c.text }}>
+                          {attraction.category}
+                        </span>
+                      )}
+                      <ListBadge distanceKm={distances[attraction.id]} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
-          displayed.map((attraction) => (
-            <div
-              key={attraction.id}
-              className="w-full flex gap-3 p-3 rounded-xl mb-1.5 text-left transition-all group cursor-pointer"
-              style={{ background: 'transparent' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-surface)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              onClick={() => onSelect(attraction)}
-            >
-              <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-gray-700">
-                {attraction.imageUrl ? (
-                  <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" loading="lazy" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-500 text-lg">📍</div>
-                )}
-              </div>
+          /* ── 리스트 뷰 ── */
+          <div className="flex flex-col gap-2">
+            {displayed.map((attraction) => {
+              const c = attraction.category
+                ? (CATEGORY_COLOR[attraction.category] ?? { bg: 'rgba(99,102,241,0.25)', text: '#c4b5fd' })
+                : null;
+              const distKm = distances[attraction.id];
+              return (
+                <div
+                  key={attraction.id}
+                  className="w-full flex rounded-2xl overflow-hidden cursor-pointer transition-all"
+                  style={{ background: 'var(--sidebar-surface)', height: '96px' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                  onClick={() => onSelect(attraction)}
+                >
+                  {/* 이미지 */}
+                  <div className="relative shrink-0" style={{ width: '128px', height: '96px' }}>
+                    {attraction.imageUrl ? (
+                      <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-500 text-3xl">📍</div>
+                    )}
+                    {/* 즐겨찾기 오버레이 */}
+                    {isLoggedIn && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggle(attraction.id); }}
+                        className="absolute bottom-2 left-2 flex items-center gap-0.5 text-xs px-2 py-0.5 rounded-full transition-colors"
+                        style={{
+                          background: 'rgba(0,0,0,0.5)',
+                          color: favorites.has(attraction.id) ? '#f43f5e' : 'rgba(255,255,255,0.7)',
+                        }}
+                      >
+                        {favorites.has(attraction.id) ? '♥' : '♡'}
+                      </button>
+                    )}
+                  </div>
 
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--sidebar-text)' }}>
-                  {attraction.name}
-                </h3>
-                <p className="text-[11px] truncate mt-0.5" style={{ color: 'var(--sidebar-text-muted)' }}>
-                  {attraction.address}
-                </p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  {attraction.category && (() => {
-                    const c = CATEGORY_COLOR[attraction.category] ?? { bg: 'rgba(100,100,100,0.2)', text: '#aaa' };
-                    return (
+                  {/* 텍스트 */}
+                  <div className="flex flex-col justify-center px-3 py-2 gap-1.5 min-w-0 overflow-hidden">
+                    {c && (
                       <span
-                        className="text-[11.5px] px-2 py-0.5 rounded font-medium"
+                        className="self-start text-[10px] font-semibold px-2.5 py-0.5 rounded-full shrink-0"
                         style={{ background: c.bg, color: c.text }}
                       >
                         {attraction.category}
                       </span>
-                    );
-                  })()}
-                  <ListBadge distanceKm={distances[attraction.id]} />
+                    )}
+                    <h3
+                      className="font-bold leading-snug"
+                      style={{ color: 'var(--sidebar-text)', fontSize: nameFontSize(attraction.name) }}
+                    >
+                      {attraction.name}
+                    </h3>
+                    {distKm !== undefined && (
+                      <div className="flex items-center gap-1.5" style={{ color: 'var(--sidebar-text-muted)' }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <circle cx="12" cy="5" r="2"/>
+                          <path d="M12 7v5l-3 3M12 12l3 3M9 21l1.5-4M15 21l-1.5-4"/>
+                        </svg>
+                        <span className="text-xs">
+                          {distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(2)}km`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex flex-col items-center justify-between gap-1">
-                {isLoggedIn && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); toggle(attraction.id); }}
-                    className="text-sm leading-none transition-colors"
-                    style={{ color: favorites.has(attraction.id) ? '#f43f5e' : 'rgba(255,255,255,0.2)' }}
-                  >
-                    {favorites.has(attraction.id) ? '♥' : '♡'}
-                  </button>
-                )}
-                <span className="text-xs text-gray-600 group-hover:text-gray-400 transition-colors">›</span>
-              </div>
-            </div>
-          ))
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

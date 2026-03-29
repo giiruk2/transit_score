@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "TransitScore",
   description: "부산 관광지 대중교통 접근성 분석",
+  icons: { icon: '/logo.png' },
 };
 
 export default function RootLayout({
