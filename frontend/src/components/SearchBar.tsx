@@ -203,7 +203,7 @@ export default function SearchBar({
       {/* 출발지 - 주소 입력 + 지도 클릭 */}
       <div>
         <p className="text-[11px] mb-2 flex items-center gap-1.5" style={{ color: 'var(--panel-text-muted)' }}>
-          🚩 출발지 설정 <span className="text-[9px] opacity-60">(주소 입력 또는 지도 클릭)</span>
+          🚩 출발지 설정 <span className="text-[9px] opacity-80">(주소 입력 또는 지도 클릭)</span>
         </p>
 
         {/* 현재 출발지 표시 */}
@@ -222,7 +222,7 @@ export default function SearchBar({
               <button
                 onClick={() => save({ name: currentOrigin.name, lat: currentOrigin.lat, lng: currentOrigin.lng, dongKey: currentOrigin.dongKey })}
                 className="text-[10px] px-2 py-0.5 rounded transition-all"
-                style={{ background: 'rgba(59,130,246,0.3)', color: 'var(--accent-light)' }}
+                style={{ background: 'var(--accent)', color: '#fff' }}
                 title="출발지 저장"
               >
                 + 저장
@@ -231,7 +231,7 @@ export default function SearchBar({
                 <button
                   onClick={() => setShowSaved((v) => !v)}
                   className="text-[10px] px-2 py-0.5 rounded transition-all"
-                  style={{ background: 'rgba(59,130,246,0.3)', color: 'var(--accent-light)' }}
+                  style={{ background: 'var(--accent)', color: '#fff' }}
                 >
                   {showSaved ? '닫기' : `목록 (${savedOrigins.length})`}
                 </button>
