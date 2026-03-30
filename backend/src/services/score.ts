@@ -39,7 +39,7 @@ export const calculateAccessibilityScore = (
   accessScoreFactor: number = 0.5,
   weights: Weights = DEFAULT_WEIGHTS
 ): FinalScoreResult => {
-  // 1. 시간 점수 정규화 (T_best = 20분, T_worst = 120분)
+  // 1. 이동 시간 점수 (T_best = 20분, T_worst = 120분)
   let s_time = 1 - (routeData.totalTimeMin - 20) / (120 - 20);
   if (s_time > 1) s_time = 1;
   if (s_time < 0) s_time = 0;
@@ -51,21 +51,26 @@ export const calculateAccessibilityScore = (
   else if (routeData.transferCount === 3) s_transfer = 0.25;
   else if (routeData.transferCount >= 4) s_transfer = 0.1;
 
-  // 3. 도보 점수 — 토블러 함수 적용 시 시간 기반, 미적용 시 거리 기반 폴백
-  // 320 정규화 기준: T≤15분 → 1.0 / 15<T<30분 → 선형감소 / T≥30분 → 0.0
+  // 3. 도보 점수 — 관광객 기준 (캐리어·유아차 동반 고려)
+  // T≤10분 → 1.0 / 10<T<20분 → 선형감소 / T≥20분 → 0.0
+  // 거리 폴백: 평지 5km/h 기준 시간 환산 후 동일 공식 적용 (일관성 유지)
   let s_walk: number;
   if (routeData.walkTimeMin !== undefined && routeData.walkTimeMin > 0) {
     const t = routeData.walkTimeMin;
-    if (t <= 15) s_walk = 1.0;
-    else if (t < 30) s_walk = 1.0 - (t - 15) / 15;
+    if (t <= 10) s_walk = 1.0;
+    else if (t < 20) s_walk = 1.0 - (t - 10) / 10;
     else s_walk = 0.0;
   } else {
-    s_walk = 1 - (routeData.walkDistanceM / 1200); // 거리 기반 폴백
+    // 평지 5km/h로 시간 환산 → 동일 시간 기준 적용 (833m=10분, 1667m=20분)
+    const estimatedWalkMin = (routeData.walkDistanceM / 1000) / 5 * 60;
+    if (estimatedWalkMin <= 10) s_walk = 1.0;
+    else if (estimatedWalkMin < 20) s_walk = 1.0 - (estimatedWalkMin - 10) / 10;
+    else s_walk = 0.0;
   }
   if (s_walk > 1) s_walk = 1;
   if (s_walk < 0) s_walk = 0;
 
-  // 4. 대기 점수 — 구간별 패널티 함수 (320 기준)
+  // 4. 대기 점수 — 구간별 패널티 함수
   // 5분 이하: 만점 / 5~20분: 선형 감소 / 20분 초과: 최저 0.1
   let s_wait: number;
   if (routeData.waitTimeMin <= 5) {
@@ -76,7 +81,7 @@ export const calculateAccessibilityScore = (
     s_wait = 0.1;
   }
 
-  // 5. 무장애 점수 — 저상버스 탑승 시 1.0으로 상향
+  // 5. 무장애 점수 — 저상버스 탑승 시 1.0, 그 외 accessScoreFactor (DB 기본값 0.5)
   const s_access = routeData.hasLowFloor ? 1.0 : accessScoreFactor;
 
   // 6. 가중합 기반 최종 점수 산출

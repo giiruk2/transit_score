@@ -8,9 +8,9 @@ import type { SavedOrigin } from '@/hooks/useSavedOrigins';
 
 const SELECTED_MARKER_SRC = `data:image/svg+xml,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="52">
-    <path d="M20 0C9 0 0 9 0 20c0 15 20 32 20 32s20-17 20-32C40 9 31 0 20 0z" fill="#6366f1" stroke="white" stroke-width="2"/>
+    <path d="M20 0C9 0 0 9 0 20c0 15 20 32 20 32s20-17 20-32C40 9 31 0 20 0z" fill="#49B4DE" stroke="white" stroke-width="2"/>
     <circle cx="20" cy="20" r="9" fill="white"/>
-    <circle cx="20" cy="20" r="5.5" fill="#6366f1"/>
+    <circle cx="20" cy="20" r="5.5" fill="#49B4DE"/>
   </svg>`
 )}`;
 
@@ -231,7 +231,7 @@ export default function MapViewer({
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
               >
                 <div style={{
-                  background: isSelected ? '#6366f1' : '#f43f5e',
+                  background: isSelected ? '#49B4DE' : '#f43f5e',
                   color: '#fff', fontSize: '11px', fontWeight: 700,
                   padding: '3px 9px', borderRadius: '999px', marginBottom: '3px',
                   whiteSpace: 'nowrap', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -245,7 +245,7 @@ export default function MapViewer({
                   width: 0, height: 0,
                   borderLeft: '5px solid transparent',
                   borderRight: '5px solid transparent',
-                  borderTop: `6px solid ${isSelected ? '#6366f1' : '#f43f5e'}`,
+                  borderTop: `6px solid ${isSelected ? '#49B4DE' : '#f43f5e'}`,
                 }} />
               </div>
             </CustomOverlayMap>

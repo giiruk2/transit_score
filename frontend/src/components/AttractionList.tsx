@@ -16,16 +16,16 @@ interface AttractionListProps {
   isLoggedIn: boolean;
 }
 
-// 카테고리별 배경색 / 텍스트색
+// 카테고리별 배경색 / 텍스트색 (라이트 패널용 — 대비 강화)
 const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
-  '전체':    { bg: 'rgba(99,102,241,0.2)',  text: '#a5b4fc' },
-  '자연':    { bg: 'rgba(34,197,94,0.2)',   text: '#86efac' },
-  '바다/해변':{ bg: 'rgba(14,165,233,0.2)', text: '#7dd3fc' },
-  '역사/전통':{ bg: 'rgba(234,179,8,0.2)',  text: '#fde047' },
-  '문화/예술':{ bg: 'rgba(236,72,153,0.2)', text: '#f9a8d4' },
-  '박물관':  { bg: 'rgba(168,85,247,0.2)',  text: '#d8b4fe' },
-  '종교':    { bg: 'rgba(249,115,22,0.2)',  text: '#fdba74' },
-  '공원/레저':{ bg: 'rgba(20,184,166,0.2)', text: '#5eead4' },
+  '전체':    { bg: 'rgba(73,180,222,0.18)',  text: '#1a7fa8' },
+  '자연':    { bg: 'rgba(34,197,94,0.18)',   text: '#166534' },
+  '바다/해변':{ bg: 'rgba(14,165,233,0.18)', text: '#0369a1' },
+  '역사/전통':{ bg: 'rgba(234,179,8,0.18)',  text: '#854d0e' },
+  '문화/예술':{ bg: 'rgba(236,72,153,0.15)', text: '#9d174d' },
+  '박물관':  { bg: 'rgba(168,85,247,0.15)',  text: '#6b21a8' },
+  '종교':    { bg: 'rgba(249,115,22,0.15)',  text: '#9a3412' },
+  '공원/레저':{ bg: 'rgba(20,184,166,0.15)', text: '#115e59' },
 };
 
 // 이름 길이에 따라 폰트 크기 동적 조정
@@ -38,7 +38,7 @@ function nameFontSize(name: string): string {
 function ListBadge({ distanceKm }: { distanceKm: number | undefined }) {
   if (distanceKm !== undefined) {
     return (
-      <span className="text-[10px]" style={{ color: 'var(--sidebar-text-muted)' }}>
+      <span className="text-[10px]" style={{ color: 'var(--panel-text-muted)' }}>
         약 {distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`}
       </span>
     );
@@ -91,8 +91,8 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 text-center">
         <span className="text-4xl mb-3">🔍</span>
-        <p className="text-sm font-medium" style={{ color: 'var(--sidebar-text)' }}>검색 결과가 없습니다</p>
-        <p className="text-xs mt-1" style={{ color: 'var(--sidebar-text-muted)' }}>
+        <p className="text-sm font-medium" style={{ color: 'var(--panel-text)' }}>검색 결과가 없습니다</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--panel-text-muted)' }}>
           &apos;{searchQuery}&apos; 에 해당하는 관광지가 없습니다.
         </p>
       </div>
@@ -109,7 +109,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
             className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg transition-all mt-1.5"
             style={{
               background: favOnly ? 'rgba(244,63,94,0.15)' : 'transparent',
-              color: favOnly ? '#f43f5e' : 'var(--sidebar-text-muted)',
+              color: favOnly ? '#f43f5e' : 'var(--panel-text-muted)',
               border: `1px solid ${favOnly ? 'rgba(244,63,94,0.3)' : 'transparent'}`,
             }}
           >
@@ -123,14 +123,14 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
         {/* 레이아웃 토글 */}
         <div
           className="flex items-center mt-1.5 rounded-lg overflow-hidden"
-          style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}
+          style={{ border: '1px solid var(--panel-border)', background: 'var(--panel-surface)' }}
         >
           <button
             onClick={() => setViewMode('list')}
             className="flex items-center justify-center w-7 h-7 transition-colors"
             style={{
-              color: viewMode === 'list' ? 'var(--accent)' : 'var(--sidebar-text-muted)',
-              background: viewMode === 'list' ? 'rgba(99,102,241,0.15)' : 'transparent',
+              color: viewMode === 'list' ? 'var(--accent)' : 'var(--panel-text-muted)',
+              background: viewMode === 'list' ? 'rgba(73,180,222,0.15)' : 'transparent',
             }}
             title="리스트 보기"
           >
@@ -140,8 +140,8 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
             onClick={() => setViewMode('grid')}
             className="flex items-center justify-center w-7 h-7 transition-colors"
             style={{
-              color: viewMode === 'grid' ? 'var(--accent)' : 'var(--sidebar-text-muted)',
-              background: viewMode === 'grid' ? 'rgba(99,102,241,0.15)' : 'transparent',
+              color: viewMode === 'grid' ? 'var(--accent)' : 'var(--panel-text-muted)',
+              background: viewMode === 'grid' ? 'rgba(73,180,222,0.15)' : 'transparent',
             }}
             title="그리드 보기"
           >
@@ -154,7 +154,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
       <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-2">
         {displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
-            <p className="text-sm font-medium" style={{ color: 'var(--sidebar-text)' }}>
+            <p className="text-sm font-medium" style={{ color: 'var(--panel-text)' }}>
               {favOnly ? '즐겨찾기가 없습니다' : `${selectedCategory} 관광지가 없습니다`}
             </p>
           </div>
@@ -169,18 +169,18 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                 <div
                   key={attraction.id}
                   className="rounded-xl overflow-hidden cursor-pointer transition-all"
-                  style={{ background: 'var(--sidebar-surface)' }}
+                  style={{ background: 'var(--panel-surface)' }}
                   onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
                   onClick={() => onSelect(attraction)}
                 >
                   {/* 이미지 1:1 */}
                   <div className="relative w-full" style={{ paddingBottom: '100%' }}>
-                    <div className="absolute inset-0 bg-gray-800">
+                    <div className="absolute inset-0 bg-gray-100">
                       {attraction.imageUrl ? (
                         <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-500 text-2xl">📍</div>
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl">📍</div>
                       )}
                     </div>
                     {isLoggedIn && (
@@ -198,7 +198,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                   </div>
                   {/* 이름 + 뱃지 */}
                   <div className="px-2 py-2">
-                    <h3 className="text-xs font-semibold leading-tight line-clamp-2" style={{ color: 'var(--sidebar-text)' }}>
+                    <h3 className="text-xs font-semibold leading-tight line-clamp-2" style={{ color: 'var(--panel-text)' }}>
                       {attraction.name}
                     </h3>
                     <div className="flex items-center gap-1 mt-1 flex-wrap">
@@ -219,14 +219,14 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
           <div className="flex flex-col gap-2">
             {displayed.map((attraction) => {
               const c = attraction.category
-                ? (CATEGORY_COLOR[attraction.category] ?? { bg: 'rgba(99,102,241,0.25)', text: '#c4b5fd' })
+                ? (CATEGORY_COLOR[attraction.category] ?? { bg: 'rgba(73,180,222,0.25)', text: '#9bbdd4' })
                 : null;
               const distKm = distances[attraction.id];
               return (
                 <div
                   key={attraction.id}
                   className="w-full flex rounded-2xl overflow-hidden cursor-pointer transition-all"
-                  style={{ background: 'var(--sidebar-surface)', height: '96px' }}
+                  style={{ background: 'var(--panel-surface)', height: '96px' }}
                   onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
                   onClick={() => onSelect(attraction)}
@@ -236,7 +236,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                     {attraction.imageUrl ? (
                       <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-500 text-3xl">📍</div>
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-3xl">📍</div>
                     )}
                     {/* 즐겨찾기 오버레이 */}
                     {isLoggedIn && (
@@ -265,12 +265,12 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                     )}
                     <h3
                       className="font-bold leading-snug"
-                      style={{ color: 'var(--sidebar-text)', fontSize: nameFontSize(attraction.name) }}
+                      style={{ color: 'var(--panel-text)', fontSize: nameFontSize(attraction.name) }}
                     >
                       {attraction.name}
                     </h3>
                     {distKm !== undefined && (
-                      <div className="flex items-center gap-1.5" style={{ color: 'var(--sidebar-text-muted)' }}>
+                      <div className="flex items-center gap-1.5" style={{ color: 'var(--panel-text-muted)' }}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                           <circle cx="12" cy="5" r="2"/>
                           <path d="M12 7v5l-3 3M12 12l3 3M9 21l1.5-4M15 21l-1.5-4"/>

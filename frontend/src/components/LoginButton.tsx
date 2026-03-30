@@ -20,16 +20,16 @@ export default function LoginButton() {
   if (user) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-[11px]" style={{ color: 'var(--sidebar-text-muted)' }}>
+        <span className="text-[11px]" style={{ color: 'var(--panel-text-muted)' }}>
           {user.user_metadata?.name ?? user.email}
         </span>
         <button
           onClick={signOut}
           className="text-[10px] px-2 py-1 rounded-lg transition-all"
           style={{
-            background: 'rgba(255,255,255,0.08)',
-            color: 'rgba(255,255,255,0.5)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--panel-surface)',
+            color: 'var(--panel-text-muted)',
+            border: '1px solid var(--panel-border)',
           }}
         >
           로그아웃
@@ -44,9 +44,9 @@ export default function LoginButton() {
         onClick={() => setShowModal(true)}
         className="text-[11px] px-3 py-1.5 rounded-lg font-medium transition-all"
         style={{
-          background: 'rgba(255,255,255,0.08)',
-          color: 'rgba(255,255,255,0.75)',
-          border: '1px solid rgba(255,255,255,0.12)',
+          background: 'var(--accent)',
+          color: '#fff',
+          border: 'none',
         }}
       >
         로그인

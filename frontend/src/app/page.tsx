@@ -219,7 +219,7 @@ export default function Home() {
         </div>
 
         {/* 오른쪽 콘텐츠 */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--sidebar-bg)' }}>
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--panel-bg)' }}>
 
           {/* 관광지 탭 */}
           {activeTab === 'attractions' && <>
@@ -260,7 +260,7 @@ export default function Home() {
             </div>
             <div
               className="px-4 py-3 shrink-0 text-[10px] flex items-center justify-between"
-              style={{ borderTop: '1px solid var(--sidebar-border)', color: 'var(--sidebar-text-muted)' }}
+              style={{ borderTop: '1px solid var(--panel-border)', color: 'var(--panel-text-muted)' }}
             >
               <span>총 {filteredAttractions.length}개 관광지</span>
               <span>출발: {currentOrigin.name}</span>
@@ -270,24 +270,24 @@ export default function Home() {
           {/* 내 정보 탭 */}
           {activeTab === 'profile' && (
             <div className="flex flex-col h-full overflow-hidden">
-              <div className="px-4 py-4 shrink-0" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-                <p className="text-white font-bold text-sm mb-3">내 정보</p>
+              <div className="px-4 py-4 shrink-0" style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                <p className="font-bold text-sm mb-3" style={{ color: 'var(--panel-text)' }}>내 정보</p>
                 <LoginButton />
               </div>
               {!isLoggedIn && (
                 <div className="flex-1 flex items-center justify-center">
-                  <p className="text-[12px]" style={{ color: 'var(--sidebar-text-muted)' }}>로그인 후 이용 가능합니다</p>
+                  <p className="text-[12px]" style={{ color: 'var(--panel-text-muted)' }}>로그인 후 이용 가능합니다</p>
                 </div>
               )}
               {isLoggedIn && (
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4">
 
                   {/* 즐겨찾기 관광지 */}
-                  <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--sidebar-text-muted)' }}>
+                  <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--panel-text-muted)' }}>
                     즐겨찾기 ({favorites.size}개)
                   </p>
                   {favorites.size === 0 ? (
-                    <p className="text-[11px] mb-4" style={{ color: 'var(--sidebar-text-muted)' }}>
+                    <p className="text-[11px] mb-4" style={{ color: 'var(--panel-text-muted)' }}>
                       하트를 눌러 관광지를 저장해보세요
                     </p>
                   ) : (
@@ -298,22 +298,22 @@ export default function Home() {
                           <div
                             key={a.id}
                             className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all"
-                            style={{ background: 'var(--sidebar-surface)' }}
+                            style={{ background: 'var(--panel-surface)' }}
                             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
                             onClick={() => { handleSelectAttraction(a); setActiveTab('attractions'); }}
                           >
-                            <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-gray-800">
+                            <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-gray-200">
                               {a.imageUrl ? (
                                 <img src={a.imageUrl} alt={a.name} className="w-full h-full object-cover" loading="lazy" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">📍</div>
+                                <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">📍</div>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--sidebar-text)' }}>{a.name}</p>
+                              <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--panel-text)' }}>{a.name}</p>
                               {a.category && (
-                                <p className="text-[10px] mt-0.5" style={{ color: 'var(--sidebar-text-muted)' }}>{a.category}</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: 'var(--panel-text-muted)' }}>{a.category}</p>
                               )}
                             </div>
                             <button
@@ -328,26 +328,26 @@ export default function Home() {
                   )}
 
                   {/* 구분선 */}
-                  <div style={{ borderTop: '1px solid var(--sidebar-border)', marginBottom: '16px' }} />
+                  <div style={{ borderTop: '1px solid var(--panel-border)', marginBottom: '16px' }} />
 
                   {/* 저장된 출발지 */}
-                  <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--sidebar-text-muted)' }}>
+                  <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--panel-text-muted)' }}>
                     저장된 출발지 ({savedOrigins.length}개)
                   </p>
                   {savedOrigins.length === 0 ? (
-                    <p className="text-[11px]" style={{ color: 'var(--sidebar-text-muted)' }}>저장된 출발지가 없습니다</p>
+                    <p className="text-[11px]" style={{ color: 'var(--panel-text-muted)' }}>저장된 출발지가 없습니다</p>
                   ) : (
                     savedOrigins.map((o) => (
                       <div
                         key={o.id}
                         className="flex items-center justify-between px-3 py-2 rounded-lg mb-1 text-[12px]"
-                        style={{ background: 'var(--sidebar-surface)', color: 'var(--sidebar-text)' }}
+                        style={{ background: 'var(--panel-surface)', color: 'var(--panel-text)' }}
                       >
                         <span className="truncate flex-1">📍 {o.name}</span>
                         <button
                           onClick={() => removeSavedOrigin(o.id)}
                           className="ml-2 text-[10px] shrink-0"
-                          style={{ color: 'rgba(255,255,255,0.3)' }}
+                          style={{ color: 'var(--panel-text-muted)' }}
                         >✕</button>
                       </div>
                     ))
@@ -360,15 +360,15 @@ export default function Home() {
           {/* 가중치 탭 */}
           {activeTab === 'weights' && (
             <div className="flex flex-col h-full overflow-hidden">
-              <div className="px-4 py-4 shrink-0" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-                <p className="text-white font-bold text-sm">가중치 설정</p>
-                <p className="text-[11px] mt-1" style={{ color: 'var(--sidebar-text-muted)' }}>
+              <div className="px-4 py-4 shrink-0" style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                <p className="font-bold text-sm" style={{ color: 'var(--panel-text)' }}>가중치 설정</p>
+                <p className="text-[11px] mt-1" style={{ color: 'var(--panel-text-muted)' }}>
                   {draftWeights ? '수정 중 — 저장 버튼을 눌러 적용' : isCustom ? '맞춤 가중치 적용 중' : '기본 가중치 사용 중'}
                 </p>
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4">
                 {([
-                  { label: '이동시간', key: 'time',     color: '#6366f1' },
+                  { label: '이동시간', key: 'time',     color: '#49B4DE' },
                   { label: '환승',    key: 'transfer', color: '#0ea5e9' },
                   { label: '도보',    key: 'walk',     color: '#22c55e' },
                   { label: '대기',    key: 'wait',     color: '#f59e0b' },
@@ -376,7 +376,7 @@ export default function Home() {
                 ] as const).map(({ label, key, color }) => (
                   <div key={key} className="mb-5">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-[12px] font-medium" style={{ color: 'var(--sidebar-text)' }}>{label}</span>
+                      <span className="text-[12px] font-medium" style={{ color: 'var(--panel-text)' }}>{label}</span>
                       <span className="text-[13px] font-bold" style={{ color }}>{Math.round(displayWeights[key] * 100)}%</span>
                     </div>
                     <input
@@ -389,7 +389,7 @@ export default function Home() {
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
                       style={{
                         accentColor: color,
-                        background: `linear-gradient(to right, ${color} ${Math.round(displayWeights[key] * 100)}%, var(--sidebar-surface) ${Math.round(displayWeights[key] * 100)}%)`,
+                        background: `linear-gradient(to right, ${color} ${Math.round(displayWeights[key] * 100)}%, var(--panel-border) ${Math.round(displayWeights[key] * 100)}%)`,
                       }}
                     />
                   </div>
@@ -409,7 +409,7 @@ export default function Home() {
                     <button
                       onClick={() => setDraftWeights(null)}
                       className="py-2.5 px-3 rounded-xl text-[12px] transition-all"
-                      style={{ background: 'var(--sidebar-surface)', color: 'var(--sidebar-text-muted)' }}
+                      style={{ background: 'var(--panel-surface)', color: 'var(--panel-text-muted)' }}
                     >
                       취소
                     </button>
@@ -421,9 +421,9 @@ export default function Home() {
                     onClick={() => setShowSurvey(true)}
                     className="flex-1 py-3 rounded-xl text-[14px] font-bold transition-all hover:brightness-110 active:scale-95"
                     style={{
-                      background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                      background: 'linear-gradient(135deg, #3450A7 0%, #49B4DE 100%)',
                       color: '#fff',
-                      boxShadow: '0 0 16px rgba(99,102,241,0.5), 0 4px 12px rgba(0,0,0,0.3)',
+                      boxShadow: '0 0 16px rgba(73,180,222,0.5), 0 4px 12px rgba(0,0,0,0.3)',
                       border: '1px solid rgba(255,255,255,0.15)',
                     }}
                   >
@@ -433,7 +433,7 @@ export default function Home() {
                     <button
                       onClick={() => { resetWeights(); setDraftWeights(null); }}
                       className="py-2 px-3 rounded-xl text-[12px] transition-all"
-                      style={{ background: 'var(--sidebar-surface)', color: 'var(--sidebar-text-muted)' }}
+                      style={{ background: 'var(--panel-surface)', color: 'var(--panel-text-muted)' }}
                     >
                       초기화
                     </button>
@@ -441,9 +441,9 @@ export default function Home() {
                 </div>
 
                 {/* 프리셋 저장 */}
-                <div className="mt-6" style={{ borderTop: '1px solid var(--sidebar-border)', paddingTop: '16px' }}>
+                <div className="mt-6" style={{ borderTop: '1px solid var(--panel-border)', paddingTop: '16px' }}>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-[12px] font-semibold" style={{ color: 'var(--sidebar-text)' }}>저장된 가중치</p>
+                    <p className="text-[12px] font-semibold" style={{ color: 'var(--panel-text)' }}>저장된 가중치</p>
                     {isLoggedInPresets ? (
                       <button
                         onClick={() => {
@@ -451,21 +451,21 @@ export default function Home() {
                           savePreset(name, displayWeights);
                         }}
                         className="text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all"
-                        style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}
+                        style={{ background: 'rgba(73,180,222,0.2)', color: '#7ecfee' }}
                       >
                         + 현재 설정 저장
                       </button>
                     ) : (
-                      <span className="text-[10px]" style={{ color: 'var(--sidebar-text-muted)' }}>로그인 필요</span>
+                      <span className="text-[10px]" style={{ color: 'var(--panel-text-muted)' }}>로그인 필요</span>
                     )}
                   </div>
 
                   {!isLoggedInPresets ? (
-                    <p className="text-[11px] text-center py-4" style={{ color: 'var(--sidebar-text-muted)' }}>
+                    <p className="text-[11px] text-center py-4" style={{ color: 'var(--panel-text-muted)' }}>
                       로그인 후 가중치를 저장할 수 있습니다
                     </p>
                   ) : presets.length === 0 ? (
-                    <p className="text-[11px] text-center py-4" style={{ color: 'var(--sidebar-text-muted)' }}>
+                    <p className="text-[11px] text-center py-4" style={{ color: 'var(--panel-text-muted)' }}>
                       저장된 가중치가 없습니다
                     </p>
                   ) : (
@@ -474,7 +474,7 @@ export default function Home() {
                         <div
                           key={preset.id}
                           className="rounded-xl px-3 py-2.5"
-                          style={{ background: 'var(--sidebar-surface)' }}
+                          style={{ background: 'var(--panel-surface)' }}
                         >
                           {/* 이름 (클릭 시 편집) */}
                           {editingPresetId === preset.id ? (
@@ -494,13 +494,13 @@ export default function Home() {
                                 if (e.key === 'Escape') setEditingPresetId(null);
                               }}
                               className="w-full text-[12px] font-semibold bg-transparent outline-none border-b pb-0.5"
-                              style={{ color: 'var(--sidebar-text)', borderColor: 'var(--accent)' }}
+                              style={{ color: 'var(--panel-text)', borderColor: 'var(--accent)' }}
                             />
                           ) : (
                             <div className="flex items-center justify-between gap-2">
                               <button
                                 className="text-[12px] font-semibold truncate text-left flex-1"
-                                style={{ color: 'var(--sidebar-text)' }}
+                                style={{ color: 'var(--panel-text)' }}
                                 onClick={() => { setEditingPresetId(preset.id); setEditingPresetName(preset.name); }}
                                 title="클릭하여 이름 변경"
                               >
@@ -510,14 +510,14 @@ export default function Home() {
                                 <button
                                   onClick={() => { saveWeights(preset.weights, 0); setDraftWeights(null); }}
                                   className="text-[10px] px-2 py-0.5 rounded-lg font-medium"
-                                  style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}
+                                  style={{ background: 'rgba(73,180,222,0.2)', color: '#7ecfee' }}
                                 >
                                   적용
                                 </button>
                                 <button
                                   onClick={() => deletePreset(preset.id)}
                                   className="text-[11px] w-5 h-5 flex items-center justify-center rounded"
-                                  style={{ color: 'rgba(255,255,255,0.25)' }}
+                                  style={{ color: 'var(--panel-text-muted)' }}
                                 >
                                   ✕
                                 </button>
@@ -528,8 +528,8 @@ export default function Home() {
                           {/* 미니 바 미리보기 */}
                           <div className="flex gap-1 mt-2">
                             {([
-                              { key: 'time',     color: '#6366f1' },
-                              { key: 'transfer', color: '#0ea5e9' },
+                              { key: 'time',     color: '#49B4DE' },
+                              { key: 'transfer', color: '#3B8AC4' },
                               { key: 'walk',     color: '#22c55e' },
                               { key: 'wait',     color: '#f59e0b' },
                               { key: 'access',   color: '#ec4899' },

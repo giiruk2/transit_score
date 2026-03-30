@@ -21,13 +21,13 @@ interface SearchBarProps {
 }
 
 const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
-  '자연':    { bg: 'rgba(34,197,94,0.2)',   text: '#86efac' },
-  '바다/해변':{ bg: 'rgba(14,165,233,0.2)', text: '#7dd3fc' },
-  '역사/전통':{ bg: 'rgba(234,179,8,0.2)',  text: '#fde047' },
-  '문화/예술':{ bg: 'rgba(236,72,153,0.2)', text: '#f9a8d4' },
-  '박물관':  { bg: 'rgba(168,85,247,0.2)',  text: '#d8b4fe' },
-  '종교':    { bg: 'rgba(249,115,22,0.2)',  text: '#fdba74' },
-  '공원/레저':{ bg: 'rgba(20,184,166,0.2)', text: '#5eead4' },
+  '자연':    { bg: 'rgba(34,197,94,0.18)',   text: '#166534' },
+  '바다/해변':{ bg: 'rgba(14,165,233,0.18)', text: '#0369a1' },
+  '역사/전통':{ bg: 'rgba(234,179,8,0.18)',  text: '#854d0e' },
+  '문화/예술':{ bg: 'rgba(236,72,153,0.15)', text: '#9d174d' },
+  '박물관':  { bg: 'rgba(168,85,247,0.15)',  text: '#6b21a8' },
+  '종교':    { bg: 'rgba(249,115,22,0.15)',  text: '#9a3412' },
+  '공원/레저':{ bg: 'rgba(20,184,166,0.15)', text: '#115e59' },
 };
 
 export default function SearchBar({
@@ -109,37 +109,53 @@ export default function SearchBar({
   };
 
   return (
-    <div className="px-4 py-3 shrink-0 relative z-10" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+    <div className="px-4 py-3 shrink-0 relative z-10" style={{ borderBottom: '1px solid var(--panel-border)' }}>
       {/* 관광지 검색 + 드롭다운 */}
       <div className="relative mb-3">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => { onSearch(e.target.value); setDropdownOpen(true); }}
-          onFocus={() => setDropdownOpen(true)}
-          onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') { onSearch(''); setDropdownOpen(false); }
-          }}
-          placeholder="관광지명 또는 주소로 검색..."
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm text-white placeholder-gray-500 outline-none transition-all focus:ring-2"
-          style={{ background: 'var(--sidebar-surface)', border: '1px solid var(--sidebar-border)' }}
-        />
-        {searchQuery && (
-          <button
-            onClick={() => { onSearch(''); setDropdownOpen(false); }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
-          >
-            ✕
-          </button>
-        )}
+        <div className="relative">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base">🔍</span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => { onSearch(e.target.value); setDropdownOpen(true); }}
+            onFocus={(e) => {
+              setDropdownOpen(true);
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(73,180,222,0.35)';
+              e.currentTarget.style.borderColor = 'var(--accent)';
+            }}
+            onBlur={(e) => {
+              setTimeout(() => setDropdownOpen(false), 150);
+              e.currentTarget.style.boxShadow = '0 0 0 2px rgba(73,180,222,0.2)';
+              e.currentTarget.style.borderColor = 'rgba(73,180,222,0.6)';
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') { onSearch(''); setDropdownOpen(false); }
+            }}
+            placeholder="관광지명 또는 주소로 검색..."
+            className="w-full pl-10 pr-8 rounded-xl text-[13px] font-medium placeholder-gray-400 outline-none transition-all"
+            style={{
+              color: 'var(--panel-text)',
+              background: 'rgba(73,180,222,0.08)',
+              border: '1px solid rgba(73,180,222,0.5)',
+              boxShadow: '0 0 0 2px rgba(73,180,222,0.15)',
+              padding: '11px 2rem 11px 2.5rem',
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => { onSearch(''); setDropdownOpen(false); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+            >
+              ✕
+            </button>
+          )}
+        </div>
 
         {/* 드롭다운 */}
         {dropdownOpen && dropdownResults.length > 0 && (
           <div
             className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-50 shadow-xl"
-            style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--sidebar-border)' }}
+            style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)' }}
           >
             {dropdownResults.map((attraction) => {
               const c = attraction.category ? (CATEGORY_COLOR[attraction.category] ?? null) : null;
@@ -147,24 +163,24 @@ export default function SearchBar({
                 <div
                   key={attraction.id}
                   className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-all"
-                  style={{ borderBottom: '1px solid var(--sidebar-border)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-surface)'; }}
+                  style={{ borderBottom: '1px solid var(--panel-border)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--panel-surface)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   onClick={() => handleSelectFromDropdown(attraction)}
                 >
                   {/* 썸네일 */}
-                  <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-gray-700">
+                  <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-gray-200">
                     {attraction.imageUrl
                       ? <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" />
-                      : <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">📍</div>
+                      : <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">📍</div>
                     }
                   </div>
                   {/* 텍스트 */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--sidebar-text)' }}>
+                    <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--panel-text)' }}>
                       {attraction.name}
                     </p>
-                    <p className="text-[10px] truncate" style={{ color: 'var(--sidebar-text-muted)' }}>
+                    <p className="text-[10px] truncate" style={{ color: 'var(--panel-text-muted)' }}>
                       {attraction.address}
                     </p>
                   </div>
@@ -186,14 +202,14 @@ export default function SearchBar({
 
       {/* 출발지 - 주소 입력 + 지도 클릭 */}
       <div>
-        <p className="text-[11px] mb-2 flex items-center gap-1.5" style={{ color: 'var(--sidebar-text-muted)' }}>
+        <p className="text-[11px] mb-2 flex items-center gap-1.5" style={{ color: 'var(--panel-text-muted)' }}>
           🚩 출발지 설정 <span className="text-[9px] opacity-60">(주소 입력 또는 지도 클릭)</span>
         </p>
 
         {/* 현재 출발지 표시 */}
         <div
           className="px-3 py-2 rounded-lg mb-2"
-          style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid var(--accent)' }}
+          style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59,130,246,0.3)' }}
         >
           {/* 주소: 전체 폭 사용 */}
           <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--accent-light)' }}>
@@ -226,13 +242,13 @@ export default function SearchBar({
 
         {/* 저장된 출발지 목록 */}
         {showSaved && savedOrigins.length > 0 && (
-          <div className="mb-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--sidebar-border)' }}>
+          <div className="mb-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--panel-border)' }}>
             {savedOrigins.map((o) => (
               <div
                 key={o.id}
                 className="flex items-center gap-2 px-3 py-2 text-[11px] cursor-pointer transition-all"
-                style={{ borderBottom: '1px solid var(--sidebar-border)', color: 'var(--sidebar-text)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-surface)'; }}
+                style={{ borderBottom: '1px solid var(--panel-border)', color: 'var(--panel-text)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--panel-surface)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
               >
                 <span
@@ -244,7 +260,7 @@ export default function SearchBar({
                 <button
                   onClick={() => remove(o.id)}
                   className="shrink-0 text-[10px]"
-                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                  style={{ color: 'var(--panel-text-muted)' }}
                 >
                   ✕
                 </button>
@@ -261,8 +277,8 @@ export default function SearchBar({
             onChange={(e) => setCustomAddress(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddressSearch()}
             placeholder="주소 또는 장소명 입력..."
-            className="flex-1 px-3 py-2 rounded-lg text-[12px] text-white placeholder-gray-500 outline-none"
-            style={{ background: 'var(--sidebar-surface)', border: '1px solid var(--sidebar-border)' }}
+            className="flex-1 px-3 py-2 rounded-lg text-[12px] placeholder-gray-400 outline-none"
+            style={{ color: 'var(--panel-text)', background: 'var(--panel-surface)', border: '1px solid var(--panel-border)' }}
           />
           <button
             onClick={handleAddressSearch}
@@ -274,7 +290,7 @@ export default function SearchBar({
           </button>
         </div>
 
-        <p className="text-[10px] mt-1.5 flex items-center gap-1" style={{ color: 'var(--sidebar-text-muted)' }}>
+        <p className="text-[10px] mt-1.5 flex items-center gap-1" style={{ color: 'var(--panel-text-muted)' }}>
           💡 지도를 클릭해도 출발지를 지정할 수 있습니다
         </p>
       </div>

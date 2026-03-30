@@ -9,7 +9,8 @@ export interface RouteResult {
   walkDistanceM: number;
   walkTimeMin?: number; // 토블러 함수 적용 유효 도보시간(분), 없으면 거리 기반 폴백
   waitTimeMin: number;
-  hasLowFloor: boolean; // 탑승 예정 버스가 저상버스인지 여부
+  hasLowFloor: boolean;   // 탑승 예정 버스가 저상버스인지 여부
+  isSubwayOnly: boolean;  // 지하철 전용 경로 여부 (접근성 평가에 활용)
   success: boolean;
   message?: string;
   isFallback?: boolean;
@@ -194,8 +195,13 @@ export const fetchOdsayRoute = async (
       const bestPath = data.result.path[0];
       const bestPathInfo = bestPath.info;
 
+      // 지하철 전용 경로 여부 판단 (버스 subPath가 하나도 없으면 지하철 전용)
+      const isSubwayOnly = !Array.isArray(bestPath.subPath) ||
+        !bestPath.subPath.some((sp: any) => sp.trafficType === 2);
+
       // 대기시간 산출: 버스는 BusanBIMS 실시간, 지하철은 배차간격/2 사용
-      let waitTimeMin = 5;
+      // BusanBIMS 실패 시 기본값 10분 (API 실패를 패널티로 처리, 기존 5분은 만점이라 역설적)
+      let waitTimeMin = 10;
       let hasLowFloor = false;
       const busStopName = extractFirstBusStopName(bestPath.subPath);
       if (busStopName) {
@@ -224,7 +230,8 @@ export const fetchOdsayRoute = async (
         walkDistanceM: bestPathInfo.totalWalk || 0,
         walkTimeMin: walkTimeMin ?? undefined,
         waitTimeMin,
-        hasLowFloor
+        hasLowFloor,
+        isSubwayOnly,
       };
 
       // Redis 캐시 저장 (비동기, 실패해도 무시)
@@ -243,7 +250,8 @@ export const fetchOdsayRoute = async (
         transferCount: 0,
         walkDistanceM: estimatedWalkM,
         waitTimeMin: 0,
-        hasLowFloor: false
+        hasLowFloor: false,
+        isSubwayOnly: false,
       };
     }
 
@@ -266,7 +274,8 @@ export const fetchOdsayRoute = async (
       transferCount: estimatedTransfers,
       walkDistanceM: estimatedWalkM,
       waitTimeMin: 10,
-      hasLowFloor: false
+      hasLowFloor: false,
+      isSubwayOnly: false,
     };
   }
 };
