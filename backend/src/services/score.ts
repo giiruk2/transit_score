@@ -5,6 +5,7 @@ export interface ScoreBreakdown {
   s_transfer: number;
   s_walk: number;
   s_wait: number;
+  s_access: number;
 }
 
 export interface FinalScoreResult {
@@ -90,10 +91,11 @@ export const calculateAccessibilityScore = (
   return {
     finalScore: Number(finalScoreRaw.toFixed(1)),
     breakdown: {
-      s_time: Number(s_time.toFixed(2)),
-      s_transfer: Number(s_transfer.toFixed(2)),
-      s_walk: Number(s_walk.toFixed(2)),
-      s_wait: Number(s_wait.toFixed(2)),
+      s_time: Number(s_time.toFixed(4)),
+      s_transfer: Number(s_transfer.toFixed(4)),
+      s_walk: Number(s_walk.toFixed(4)),
+      s_wait: Number(s_wait.toFixed(4)),
+      s_access: Number(s_access.toFixed(4)),
     },
     rawParams: routeData
   };

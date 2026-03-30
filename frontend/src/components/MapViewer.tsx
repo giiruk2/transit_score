@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Map as KakaoMap, CustomOverlayMap, Polyline } from 'react-kakao-maps-sdk';
 import axios from 'axios';
 import type { Attraction } from '@/app/page';
+import type { SavedOrigin } from '@/hooks/useSavedOrigins';
 
 const SELECTED_MARKER_SRC = `data:image/svg+xml,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="52">
@@ -20,6 +21,7 @@ const DEFAULT_MARKER_SRC = `data:image/svg+xml,${encodeURIComponent(
   </svg>`
 )}`;
 
+
 interface MapViewerProps {
   selectedAttraction: Attraction | null;
   onMarkerClick: (attraction: Attraction) => void;
@@ -27,11 +29,14 @@ interface MapViewerProps {
   currentOrigin: { name: string; lat: number; lng: number; dongKey?: string };
   onOriginChange: (origin: { name: string; lat: number; lng: number; dongKey?: string }) => void;
   selectedCategory: string | null;
+  favorites?: Set<string>;
+  savedOrigins?: SavedOrigin[];
 }
 
 export default function MapViewer({
   selectedAttraction, onMarkerClick, onAttractionsLoaded,
   currentOrigin, onOriginChange, selectedCategory,
+  favorites, savedOrigins,
 }: MapViewerProps) {
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,18 +90,22 @@ export default function MapViewer({
       ? attractions.filter((a) => a.category === selectedCategory)
       : attractions;
 
-    const markers = filtered.map((attraction) => {
-      const marker = new window.kakao.maps.Marker({
-        position: new window.kakao.maps.LatLng(attraction.lat, attraction.lng),
-        title: attraction.name,
-        image: defaultImg,
+    // 즐겨찾기는 CustomOverlayMap으로 별도 렌더링 → 클러스터에서 제외
+    const markers = filtered
+      .filter((a) => !(favorites?.has(a.id) ?? false))
+      .map((attraction) => {
+        const marker = new window.kakao.maps.Marker({
+          position: new window.kakao.maps.LatLng(attraction.lat, attraction.lng),
+          title: attraction.name,
+          image: defaultImg,
+          zIndex: 1,
+        });
+        window.kakao.maps.event.addListener(marker, 'click', () => {
+          onMarkerClick(attraction);
+        });
+        markersRef.current.set(attraction.id, marker);
+        return marker;
       });
-      window.kakao.maps.event.addListener(marker, 'click', () => {
-        onMarkerClick(attraction);
-      });
-      markersRef.current.set(attraction.id, marker);
-      return marker;
-    });
 
     const clusterer = new window.kakao.maps.MarkerClusterer({
       map: mapInstance,
@@ -108,13 +117,13 @@ export default function MapViewer({
 
     clustererRef.current = clusterer;
     return () => { clusterer.clear(); };
-  }, [mapInstance, attractions, onMarkerClick, selectedCategory]);
+  }, [mapInstance, attractions, onMarkerClick, selectedCategory, favorites]);
 
   // 선택된 마커 하이라이트
   useEffect(() => {
     if (!mapInstance || markersRef.current.size === 0) return;
 
-    // 이전 선택 마커 복원
+    // 이전 선택 마커 복원 (즐겨찾기는 clusterer에 없으므로 일반 마커만 처리)
     if (prevSelectedIdRef.current) {
       const prev = markersRef.current.get(prevSelectedIdRef.current);
       if (prev) {
@@ -159,7 +168,7 @@ export default function MapViewer({
         if (status === window.kakao.maps.services.Status.OK && result[0]) {
           const addr = result[0].road_address?.address_name || result[0].address?.address_name;
           if (addr) {
-            name = addr.length > 12 ? addr.slice(0, 12) + '...' : addr;
+            name = addr;
             const match = addr.match(/(\S+구|\S+군)\s+(\S+동|\S+읍|\S+면)/);
             if (match) dongKey = `${match[1]} ${match[2]}`;
           }
@@ -209,17 +218,72 @@ export default function MapViewer({
         />
       )}
 
+      {/* 즐겨찾기 관광지 (클러스터 제외, 항상 표시) */}
+      {attractions
+        .filter((a) => favorites?.has(a.id))
+        .filter((a) => !selectedCategory || a.category === selectedCategory)
+        .map((a) => {
+          const isSelected = selectedAttraction?.id === a.id;
+          return (
+            <CustomOverlayMap key={`fav-${a.id}`} position={{ lat: a.lat, lng: a.lng }} yAnchor={1.15} clickable>
+              <div
+                onClick={(e) => { e.stopPropagation(); onMarkerClick(a); }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <div style={{
+                  background: isSelected ? '#6366f1' : '#f43f5e',
+                  color: '#fff', fontSize: '11px', fontWeight: 700,
+                  padding: '3px 9px', borderRadius: '999px', marginBottom: '3px',
+                  whiteSpace: 'nowrap', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.45)',
+                  border: isSelected ? '1.5px solid #fff' : '1px solid rgba(255,255,255,0.4)',
+                  transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                }}>
+                  ♥ {a.name}
+                </div>
+                <div style={{
+                  width: 0, height: 0,
+                  borderLeft: '5px solid transparent',
+                  borderRight: '5px solid transparent',
+                  borderTop: `6px solid ${isSelected ? '#6366f1' : '#f43f5e'}`,
+                }} />
+              </div>
+            </CustomOverlayMap>
+          );
+        })
+      }
+
+      {/* 저장된 출발지 마커 */}
+      {savedOrigins?.map((o) => (
+        <CustomOverlayMap key={o.id} position={{ lat: o.lat, lng: o.lng }} yAnchor={0.85}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
+            <div style={{
+              background: 'rgba(59,130,246,0.9)', color: '#fff', fontSize: '11px', fontWeight: 700,
+              padding: '3px 8px', borderRadius: '999px', marginBottom: '5px',
+              whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            }}>
+              ⭐ {o.name}
+            </div>
+            <div style={{
+              width: '20px', height: '20px', borderRadius: '50%',
+              background: 'rgba(59,130,246,1)', border: '2px solid #fff',
+              boxShadow: '0 0 0 2px rgba(59,130,246,0.5), 0 2px 6px rgba(0,0,0,0.4)',
+            }} />
+          </div>
+        </CustomOverlayMap>
+      ))}
+
       {/* 출발지 마커 */}
       <CustomOverlayMap position={{ lat: currentOrigin.lat, lng: currentOrigin.lng }} yAnchor={0.85}>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
           <div style={{
-            background: 'rgba(249,115,22,1)', color: '#fff', fontSize: '12px', fontWeight: 800,
-            padding: '4px 10px', borderRadius: '999px', marginBottom: '6px',
+            background: 'rgba(249,115,22,1)', color: '#fff', fontSize: '15px', fontWeight: 800,
+            padding: '5px 14px', borderRadius: '999px', marginBottom: '6px',
             whiteSpace: 'nowrap', boxShadow: '0 3px 10px rgba(0,0,0,0.5)',
-            letterSpacing: '0.01em',
+            letterSpacing: '0.02em',
           }}>
-            📍 {currentOrigin.name}
+            출발지
           </div>
           <div style={{ position: 'relative', width: '28px', height: '28px' }}>
             <div style={{

@@ -24,6 +24,15 @@ export interface Attraction {
   category?: string;
 }
 
+// 동 캐시에서 받는 서브스코어 타입 (가중치와 독립적)
+interface SubScores {
+  sTime: number;
+  sTransfer: number;
+  sWalk: number;
+  sWait: number;
+  sAccess: number;
+}
+
 // 기본 출발지 (부산역)
 const defaultOrigin = { name: '부산역', lat: 35.1152, lng: 129.0422, dongKey: '동구 초량동' };
 
@@ -76,7 +85,7 @@ export default function Home() {
   const handleOriginChange = useCallback((origin: { name: string; lat: number; lng: number; dongKey?: string }) => {
     setCurrentOrigin(origin);
     setSelectedAttraction(null);
-    setScores({});
+    setSubScores({});
   }, []);
 
   const handleClosePanel = useCallback(() => {
@@ -90,7 +99,7 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState<'attractions' | 'profile' | 'weights'>('attractions');
   const { weights, isCustom, saveWeights, resetWeights } = useWeights();
-  const { presets, savePreset, renamePreset, deletePreset } = useWeightPresets();
+  const { presets, savePreset, renamePreset, deletePreset, isLoggedIn: isLoggedInPresets } = useWeightPresets();
   const [draftWeights, setDraftWeights] = useState<typeof weights | null>(null);
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
   const [editingPresetName, setEditingPresetName] = useState('');
@@ -112,15 +121,15 @@ export default function Home() {
       return next;
     });
   }, [weights]);
-  const { favorites, isLoggedIn } = useFavorites();
+  const { favorites, toggle: toggleFavorite, isLoggedIn } = useFavorites();
   const { savedOrigins, remove: removeSavedOrigin, isLoggedIn: isLoggedInOrigins } = useSavedOrigins();
   const [showSurvey, setShowSurvey] = useState(false);
 
-  // 동별 DB 점수 (출발지 동 변경 시 API 조회로 채워짐)
-  const [scores, setScores] = useState<Record<string, number>>({});
+  // 동별 DB 서브스코어 (출발지 동 변경 시 API 조회로 채워짐)
+  const [subScores, setSubScores] = useState<Record<string, SubScores>>({});
   const [categoryOpen, setCategoryOpen] = useState(true);
 
-  // 출발지 변경 시 동 점수 조회
+  // 출발지 변경 시 동 서브스코어 조회
   useEffect(() => {
     const dongKey = currentOrigin.dongKey;
     if (!dongKey) return;
@@ -128,10 +137,25 @@ export default function Home() {
     fetch(`${apiUrl}/api/dong-scores?dong=${encodeURIComponent(dongKey)}`)
       .then((r) => r.json())
       .then((json) => {
-        if (json.success) setScores(json.data);
+        if (json.success) setSubScores(json.data);
       })
       .catch(() => {});
   }, [currentOrigin]);
+
+  // 서브스코어 + 현재 가중치로 finalScore 계산 (가중치 변경 시 즉시 재정렬)
+  const scores = useMemo<Record<string, number>>(() => {
+    const result: Record<string, number> = {};
+    Object.entries(subScores).forEach(([id, s]) => {
+      result[id] = 100 * (
+        weights.time     * s.sTime +
+        weights.transfer * s.sTransfer +
+        weights.walk     * s.sWalk +
+        weights.wait     * s.sWait +
+        weights.access   * s.sAccess
+      );
+    });
+    return result;
+  }, [subScores, weights]);
 
   // 거리 기반 보조 정렬값 (출발지 변경 시 즉시 재계산, API 0건)
   const distances = useMemo<Record<string, number>>(() => {
@@ -215,6 +239,9 @@ export default function Home() {
                   onClose={handleClosePanel}
                   weights={weights}
                   dongKey={currentOrigin.dongKey}
+                  favorites={favorites}
+                  onToggleFavorite={toggleFavorite}
+                  isLoggedIn={isLoggedIn}
                 />
               ) : (
                 <AttractionList
@@ -225,6 +252,9 @@ export default function Home() {
                   distances={distances}
                   selectedCategory={selectedCategory}
                   onCategoryChange={handleCategoryChange}
+                  favorites={favorites}
+                  onToggleFavorite={toggleFavorite}
+                  isLoggedIn={isLoggedIn}
                 />
               )}
             </div>
@@ -286,7 +316,12 @@ export default function Home() {
                                 <p className="text-[10px] mt-0.5" style={{ color: 'var(--sidebar-text-muted)' }}>{a.category}</p>
                               )}
                             </div>
-                            <span className="text-[11px]" style={{ color: '#f43f5e' }}>♥</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleFavorite(a.id); }}
+                              className="text-[15px] shrink-0 transition-transform hover:scale-125"
+                              style={{ color: '#f43f5e' }}
+                              title="즐겨찾기 해제"
+                            >♥</button>
                           </div>
                         ))}
                     </div>
@@ -384,10 +419,15 @@ export default function Home() {
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => setShowSurvey(true)}
-                    className="flex-1 py-2 rounded-xl text-[12px] font-medium transition-all"
-                    style={{ background: 'var(--sidebar-surface)', color: 'var(--sidebar-text-muted)' }}
+                    className="flex-1 py-3 rounded-xl text-[14px] font-bold transition-all hover:brightness-110 active:scale-95"
+                    style={{
+                      background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                      color: '#fff',
+                      boxShadow: '0 0 16px rgba(99,102,241,0.5), 0 4px 12px rgba(0,0,0,0.3)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                    }}
                   >
-                    AHP 설문으로 설정
+                    ✨ 내 취향 분석하기
                   </button>
                   {isCustom && (
                     <button
@@ -404,19 +444,27 @@ export default function Home() {
                 <div className="mt-6" style={{ borderTop: '1px solid var(--sidebar-border)', paddingTop: '16px' }}>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[12px] font-semibold" style={{ color: 'var(--sidebar-text)' }}>저장된 가중치</p>
-                    <button
-                      onClick={() => {
-                        const name = `내 설정 ${presets.length + 1}`;
-                        savePreset(name, displayWeights);
-                      }}
-                      className="text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all"
-                      style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}
-                    >
-                      + 현재 설정 저장
-                    </button>
+                    {isLoggedInPresets ? (
+                      <button
+                        onClick={() => {
+                          const name = `내 설정 ${presets.length + 1}`;
+                          savePreset(name, displayWeights);
+                        }}
+                        className="text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all"
+                        style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}
+                      >
+                        + 현재 설정 저장
+                      </button>
+                    ) : (
+                      <span className="text-[10px]" style={{ color: 'var(--sidebar-text-muted)' }}>로그인 필요</span>
+                    )}
                   </div>
 
-                  {presets.length === 0 ? (
+                  {!isLoggedInPresets ? (
+                    <p className="text-[11px] text-center py-4" style={{ color: 'var(--sidebar-text-muted)' }}>
+                      로그인 후 가중치를 저장할 수 있습니다
+                    </p>
+                  ) : presets.length === 0 ? (
                     <p className="text-[11px] text-center py-4" style={{ color: 'var(--sidebar-text-muted)' }}>
                       저장된 가중치가 없습니다
                     </p>
@@ -566,6 +614,8 @@ export default function Home() {
           currentOrigin={currentOrigin}
           onOriginChange={handleOriginChange}
           selectedCategory={selectedCategory}
+          favorites={favorites}
+          savedOrigins={savedOrigins}
         />
       </div>
     </main>

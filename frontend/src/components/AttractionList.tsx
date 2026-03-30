@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import type { Attraction } from '@/app/page';
-import { useFavorites } from '@/hooks/useFavorites';
 
 interface AttractionListProps {
   attractions: Attraction[];
@@ -12,6 +11,9 @@ interface AttractionListProps {
   distances: Record<string, number>;
   selectedCategory: string | null;
   onCategoryChange: (cat: string | null) => void;
+  favorites: Set<string>;
+  onToggleFavorite: (id: string) => void;
+  isLoggedIn: boolean;
 }
 
 // 카테고리별 배경색 / 텍스트색
@@ -66,8 +68,7 @@ function IconGrid() {
   );
 }
 
-export default function AttractionList({ attractions, onSelect, searchQuery, scores, distances, selectedCategory, onCategoryChange }: AttractionListProps) {
-  const { favorites, toggle, isLoggedIn } = useFavorites();
+export default function AttractionList({ attractions, onSelect, searchQuery, scores, distances, selectedCategory, onCategoryChange, favorites, onToggleFavorite, isLoggedIn }: AttractionListProps) {
   const [favOnly, setFavOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
@@ -184,7 +185,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                     </div>
                     {isLoggedIn && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggle(attraction.id); }}
+                        onClick={(e) => { e.stopPropagation(); onToggleFavorite(attraction.id); }}
                         className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded-full text-xs transition-colors"
                         style={{
                           background: 'rgba(0,0,0,0.45)',
@@ -240,7 +241,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                     {/* 즐겨찾기 오버레이 */}
                     {isLoggedIn && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggle(attraction.id); }}
+                        onClick={(e) => { e.stopPropagation(); onToggleFavorite(attraction.id); }}
                         className="absolute bottom-2 left-2 flex items-center gap-0.5 text-xs px-2 py-0.5 rounded-full transition-colors"
                         style={{
                           background: 'rgba(0,0,0,0.5)',

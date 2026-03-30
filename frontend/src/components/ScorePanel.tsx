@@ -5,7 +5,6 @@ import axios from 'axios';
 import type { Attraction } from '@/app/page';
 import { Weights, DEFAULT_WEIGHTS } from '@/hooks/useWeights';
 import { getUser } from '@/lib/auth';
-import { useFavorites } from '@/hooks/useFavorites';
 
 const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
   '자연':    { bg: 'rgba(34,197,94,0.2)',   text: '#86efac' },
@@ -23,6 +22,9 @@ interface ScorePanelProps {
   onClose: () => void;
   weights?: Weights;
   dongKey?: string;
+  favorites: Set<string>;
+  onToggleFavorite: (id: string) => void;
+  isLoggedIn: boolean;
 }
 
 interface ScoreDetails {
@@ -124,11 +126,10 @@ function ScoreBar({ label, value, maxValue, unit, color, score }: { label: strin
   );
 }
 
-export default function ScorePanel({ attraction, origin, onClose, weights = DEFAULT_WEIGHTS, dongKey }: ScorePanelProps) {
+export default function ScorePanel({ attraction, origin, onClose, weights = DEFAULT_WEIGHTS, dongKey, favorites, onToggleFavorite, isLoggedIn }: ScorePanelProps) {
   const [scoreData, setScoreData] = useState<ScoreDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const { favorites, toggle, isLoggedIn } = useFavorites();
 
   useEffect(() => {
     const fetchScore = async () => {
@@ -206,7 +207,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
           <h2 className="text-lg font-bold" style={{ color: 'var(--sidebar-text)' }}>{attraction.name}</h2>
           {isLoggedIn && (
             <button
-              onClick={() => toggle(attraction.id)}
+              onClick={() => onToggleFavorite(attraction.id)}
               className="text-xl shrink-0 transition-colors"
               style={{ color: favorites.has(attraction.id) ? '#f43f5e' : 'rgba(255,255,255,0.25)' }}
             >

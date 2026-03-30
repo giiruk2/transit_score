@@ -33,8 +33,8 @@ logs/
 # Testing reports (local only)
 testing/
 
-# Raw data dumps (local only)
-data/
+# Large raw data files
+data/*.csv
 
 # Build and Temp folders
 frontend/.next/

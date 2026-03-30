@@ -119,15 +119,24 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
   // 5. 경로 데이터를 바탕으로 0~100점 정규화 가중합 산출
   const scoreResult = calculateAccessibilityScore(routeResult, accessScore, weights);
 
-  // 6. dongKey가 있으면 DongScore에 기본 가중치 점수 저장 (리스트 정렬 기준은 기본 가중치로 일관되게 유지)
+  // 6. dongKey가 있으면 DongScore에 동 중심좌표 기준 서브스코어 저장
   const dongKey = req.query.dongKey as string | undefined;
   if (dongKey) {
-    const defaultResult = calculateAccessibilityScore(routeResult, accessScore);
-    prisma.dongScore.upsert({
-      where: { dongKey_attractionId: { dongKey, attractionId } },
-      create: { dongKey, attractionId, score: defaultResult.finalScore, dongLat: originLat, dongLng: originLng },
-      update: { score: defaultResult.finalScore, dongLat: originLat, dongLng: originLng, computedAt: new Date() }
-    }).catch(() => {});
+    const dongCenter = dongCenters[dongKey];
+    if (dongCenter) {
+      // 동 중심좌표에서 관광지까지 별도 경로 탐색 → 동 캐시는 항상 동 중심 기준
+      fetchOdsayRoute(dongCenter.lat, dongCenter.lng, destLat, destLng)
+        .then((dongRouteResult) => {
+          const dongResult = calculateAccessibilityScore(dongRouteResult, accessScore);
+          const { s_time, s_transfer, s_walk, s_wait, s_access } = dongResult.breakdown;
+          return prisma.dongScore.upsert({
+            where: { dongKey_attractionId: { dongKey, attractionId } },
+            create: { dongKey, attractionId, sTime: s_time, sTransfer: s_transfer, sWalk: s_walk, sWait: s_wait, sAccess: s_access, dongLat: dongCenter.lat, dongLng: dongCenter.lng },
+            update: { sTime: s_time, sTransfer: s_transfer, sWalk: s_walk, sWait: s_wait, sAccess: s_access, dongLat: dongCenter.lat, dongLng: dongCenter.lng, computedAt: new Date() }
+          });
+        })
+        .catch(() => {});
+    }
   }
 
   // 7. 로그인 사용자면 ScoreSnapshot 저장
@@ -173,8 +182,16 @@ app.get('/api/dong-scores', async (req: Request, res: Response): Promise<any> =>
 
   try {
     const rows = await prisma.dongScore.findMany({ where: { dongKey } });
-    const data: Record<string, number> = {};
-    rows.forEach((row) => { data[row.attractionId] = row.score; });
+    const data: Record<string, { sTime: number; sTransfer: number; sWalk: number; sWait: number; sAccess: number }> = {};
+    rows.forEach((row) => {
+      data[row.attractionId] = {
+        sTime: row.sTime,
+        sTransfer: row.sTransfer,
+        sWalk: row.sWalk,
+        sWait: row.sWait,
+        sAccess: row.sAccess,
+      };
+    });
     return res.json({ success: true, data });
   } catch {
     return res.status(500).json({ success: false, message: 'DB 조회 오류' });

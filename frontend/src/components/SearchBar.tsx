@@ -73,7 +73,7 @@ export default function SearchBar({
             const { y, x } = result[0];
             const addr = result[0].road_address?.address_name || result[0].address?.address_name || customAddress;
             onOriginChange({
-              name: customAddress.length > 12 ? customAddress.slice(0, 12) + '...' : customAddress,
+              name: customAddress,
               lat: parseFloat(y),
               lng: parseFloat(x),
               dongKey: extractDongKey(addr),
@@ -86,7 +86,7 @@ export default function SearchBar({
                 const place = placeResult[0];
                 const addr = place.address_name || place.road_address_name || '';
                 onOriginChange({
-                  name: place.place_name.length > 12 ? place.place_name.slice(0, 12) + '...' : place.place_name,
+                  name: place.place_name,
                   lat: parseFloat(place.y),
                   lng: parseFloat(place.x),
                   dongKey: extractDongKey(addr),
@@ -192,28 +192,35 @@ export default function SearchBar({
 
         {/* 현재 출발지 표시 */}
         <div
-          className="px-3 py-2 rounded-lg text-[12px] flex items-center gap-2 mb-2"
-          style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid var(--accent)', color: 'var(--accent-light)' }}
+          className="px-3 py-2 rounded-lg mb-2"
+          style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid var(--accent)' }}
         >
-          📍 <span className="font-semibold flex-1 truncate">{currentOrigin.name}</span>
+          {/* 주소: 전체 폭 사용 */}
+          <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--accent-light)' }}>
+            <span className="shrink-0">📍</span>
+            <span className="text-[12px] font-semibold leading-snug">{currentOrigin.name}</span>
+          </div>
+          {/* 버튼: 아랫줄 우측 정렬 */}
           {isLoggedIn && (
-            <button
-              onClick={() => save({ name: currentOrigin.name, lat: currentOrigin.lat, lng: currentOrigin.lng, dongKey: currentOrigin.dongKey })}
-              className="text-[10px] px-1.5 py-0.5 rounded shrink-0 transition-all"
-              style={{ background: 'rgba(59,130,246,0.3)', color: 'var(--accent-light)' }}
-              title="출발지 저장"
-            >
-              저장
-            </button>
-          )}
-          {isLoggedIn && savedOrigins.length > 0 && (
-            <button
-              onClick={() => setShowSaved((v) => !v)}
-              className="text-[10px] px-1.5 py-0.5 rounded shrink-0 transition-all"
-              style={{ background: 'rgba(59,130,246,0.3)', color: 'var(--accent-light)' }}
-            >
-              {showSaved ? '닫기' : `목록(${savedOrigins.length})`}
-            </button>
+            <div className="flex items-center justify-end gap-1.5">
+              <button
+                onClick={() => save({ name: currentOrigin.name, lat: currentOrigin.lat, lng: currentOrigin.lng, dongKey: currentOrigin.dongKey })}
+                className="text-[10px] px-2 py-0.5 rounded transition-all"
+                style={{ background: 'rgba(59,130,246,0.3)', color: 'var(--accent-light)' }}
+                title="출발지 저장"
+              >
+                + 저장
+              </button>
+              {savedOrigins.length > 0 && (
+                <button
+                  onClick={() => setShowSaved((v) => !v)}
+                  className="text-[10px] px-2 py-0.5 rounded transition-all"
+                  style={{ background: 'rgba(59,130,246,0.3)', color: 'var(--accent-light)' }}
+                >
+                  {showSaved ? '닫기' : `목록 (${savedOrigins.length})`}
+                </button>
+              )}
+            </div>
           )}
         </div>
 

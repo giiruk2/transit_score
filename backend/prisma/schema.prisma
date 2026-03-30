@@ -87,8 +87,12 @@ model DongScore {
   // 어떤 관광지의 점수인지
   attractionId String
 
-  // 동 중심좌표에서 계산된 기본 점수 (0~100)
-  score        Float
+  // 정규화된 서브스코어 (가중치와 독립적으로 저장 → 조회 시점 가중치로 finalScore 계산)
+  sTime        Float    // 이동시간 서브스코어 (0~1)
+  sTransfer    Float    // 환승 서브스코어 (0~1)
+  sWalk        Float    // 도보 서브스코어 (0~1)
+  sWait        Float    // 대기 서브스코어 (0~1)
+  sAccess      Float    // 무장애 서브스코어 (0~1)
 
   // 계산에 사용된 동 중심 좌표
   dongLat      Float
