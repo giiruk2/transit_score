@@ -109,7 +109,17 @@ export default function SearchBar({
   };
 
   return (
-    <div className="px-4 py-3 shrink-0 relative z-10" style={{ borderBottom: '1px solid var(--panel-border)' }}>
+    <div className="px-4 shrink-0 relative z-10" style={{ borderBottom: '1px solid var(--panel-border)' }}>
+      {/* 헤더 */}
+      <div className="py-4 mb-1 flex items-center gap-2">
+        <div>
+          <h1 className="text-[17px] font-extrabold tracking-tight" style={{ color: 'var(--panel-text)' }}>
+            Transit<span style={{ color: 'var(--accent)' }}>Score</span>
+          </h1>
+          <p className="text-[10px]" style={{ color: 'var(--panel-text-muted)' }}>부산 관광지 대중교통 접근성</p>
+        </div>
+      </div>
+
       {/* 관광지 검색 + 드롭다운 */}
       <div className="relative mb-3">
         <div className="relative">
