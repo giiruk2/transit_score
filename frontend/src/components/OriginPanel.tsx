@@ -80,11 +80,13 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
             boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
           }}
         >
-          <span className="text-sm">📍</span>
-          <span className="text-[12px] font-semibold max-w-[140px] truncate" style={{ color: 'var(--panel-text)' }}>
-            {currentOrigin.name}
-          </span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium" style={{ background: 'rgba(73,180,222,0.15)', color: 'var(--accent)' }}>
+          <div className="flex flex-col items-start">
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>출발지</span>
+            <span className="text-[12px] font-semibold max-w-[140px] truncate leading-tight" style={{ color: 'var(--panel-text)' }}>
+              📍 {currentOrigin.name}
+            </span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium shrink-0" style={{ background: 'rgba(73,180,222,0.15)', color: 'var(--accent)' }}>
             변경
           </span>
         </button>
