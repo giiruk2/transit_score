@@ -72,22 +72,21 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
       {!expanded && (
         <button
           onClick={() => setExpanded(true)}
-          className="flex items-center gap-3 pl-0 pr-3 py-0 rounded-xl overflow-hidden transition-all hover:brightness-97 active:scale-95"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg transition-all hover:brightness-105 active:scale-95"
           style={{
-            background: '#ffffff',
-            border: '1.5px solid var(--accent)',
-            boxShadow: '0 4px 16px rgba(73,180,222,0.3), 0 2px 6px rgba(0,0,0,0.12)',
+            background: 'rgba(255,255,255,0.92)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(73,180,222,0.3)',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
           }}
         >
-          {/* 왼쪽 accent 바 */}
-          <div className="w-1 self-stretch shrink-0" style={{ background: 'var(--accent)' }} />
-          <div className="flex flex-col items-start py-2">
-            <span className="text-[9px] font-bold tracking-wider" style={{ color: 'var(--panel-text-muted)' }}>출발지</span>
+          <div className="flex flex-col items-start">
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--panel-text)' }}>출발지</span>
             <span className="text-[12px] font-semibold max-w-[140px] truncate leading-tight" style={{ color: 'var(--panel-text)' }}>
               📍 {currentOrigin.name}
             </span>
           </div>
-          <span className="text-[10px] px-2 py-1 rounded-lg font-semibold shrink-0" style={{ background: 'var(--accent)', color: '#fff' }}>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium shrink-0" style={{ background: 'rgba(73,180,222,0.15)', color: 'var(--accent)' }}>
             변경
           </span>
         </button>
