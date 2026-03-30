@@ -187,12 +187,9 @@ export default function Home() {
           className="h-full flex flex-col items-center py-4 gap-1 shrink-0"
           style={{ width: '72px', background: 'var(--sidebar-bg)', borderRight: '1px solid var(--sidebar-border)' }}
         >
-          {/* 앱 이니셜 뱃지 */}
-          <div
-            className="w-12 h-12 rounded-2xl flex flex-col items-center justify-center mb-5 shrink-0"
-            style={{ background: 'var(--accent)', boxShadow: '0 2px 10px rgba(73,180,222,0.5)' }}
-          >
-            <span className="text-[11px] font-black text-white leading-tight tracking-widest">TS</span>
+          {/* 로고 */}
+          <div className="w-14 h-14 rounded-2xl overflow-hidden mb-5 shrink-0">
+            <img src="/logo.png" alt="TransitScore" className="w-full h-full object-cover scale-150" />
           </div>
 
           {/* 탭 버튼 */}
