@@ -212,7 +212,7 @@ export default function SearchBar({
           style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59,130,246,0.3)' }}
         >
           {/* 주소: 전체 폭 사용 */}
-          <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--accent-light)' }}>
+          <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--accent)' }}>
             <span className="shrink-0">📍</span>
             <span className="text-[12px] font-semibold leading-snug">{currentOrigin.name}</span>
           </div>
