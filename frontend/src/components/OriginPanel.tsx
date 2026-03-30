@@ -81,7 +81,7 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
           }}
         >
           <div className="flex flex-col items-start">
-            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>출발지</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--panel-text)' }}>출발지</span>
             <span className="text-[12px] font-semibold max-w-[140px] truncate leading-tight" style={{ color: 'var(--panel-text)' }}>
               📍 {currentOrigin.name}
             </span>
