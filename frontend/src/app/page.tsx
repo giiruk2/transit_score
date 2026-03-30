@@ -11,6 +11,7 @@ import { useWeightPresets } from '@/hooks/useWeightPresets';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useSavedOrigins } from '@/hooks/useSavedOrigins';
 import LoginButton from '@/components/LoginButton';
+import OriginPanel from '@/components/OriginPanel';
 
 // 관광지 데이터 타입
 export interface Attraction {
@@ -226,8 +227,6 @@ export default function Home() {
             <SearchBar
               searchQuery={searchQuery}
               onSearch={handleSearch}
-              currentOrigin={currentOrigin}
-              onOriginChange={handleOriginChange}
               attractions={attractions}
               onSelectAttraction={handleSelectAttraction}
             />
@@ -555,6 +554,9 @@ export default function Home() {
 
       {/* 우측 지도 영역 */}
       <div className="flex-1 h-screen relative">
+        {/* 출발지 플로팅 패널 */}
+        <OriginPanel currentOrigin={currentOrigin} onOriginChange={handleOriginChange} />
+
         {/* 카테고리 필터 플로팅 버튼 */}
         <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2">
           {/* 접기/펼치기 토글 버튼 (항상 맨 왼쪽 고정) */}

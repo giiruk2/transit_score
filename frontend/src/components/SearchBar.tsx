@@ -1,21 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useSavedOrigins } from '@/hooks/useSavedOrigins';
 import type { Attraction } from '@/app/page';
-
-interface OriginType {
-  name: string;
-  lat: number;
-  lng: number;
-  dongKey?: string;
-}
 
 interface SearchBarProps {
   searchQuery: string;
   onSearch: (query: string) => void;
-  currentOrigin: OriginType;
-  onOriginChange: (origin: OriginType) => void;
   attractions: Attraction[];
   onSelectAttraction: (attraction: Attraction) => void;
 }
@@ -31,14 +21,9 @@ const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
 };
 
 export default function SearchBar({
-  searchQuery, onSearch, currentOrigin, onOriginChange,
-  attractions, onSelectAttraction,
+  searchQuery, onSearch, attractions, onSelectAttraction,
 }: SearchBarProps) {
-  const [customAddress, setCustomAddress] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [showSaved, setShowSaved] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { savedOrigins, save, remove, isLoggedIn } = useSavedOrigins();
 
   const dropdownResults = searchQuery.trim()
     ? attractions
@@ -55,58 +40,6 @@ export default function SearchBar({
     setDropdownOpen(false);
   };
 
-  // 카카오 주소 검색 → 좌표 변환
-  const handleAddressSearch = async () => {
-    if (!customAddress.trim()) return;
-    setSearching(true);
-
-    try {
-      if (typeof window !== 'undefined' && window.kakao?.maps?.services) {
-        const geocoder = new window.kakao.maps.services.Geocoder();
-        const extractDongKey = (addr: string): string | undefined => {
-          const match = addr.match(/(\S+구|\S+군)\s+(\S+동|\S+읍|\S+면)/);
-          return match ? `${match[1]} ${match[2]}` : undefined;
-        };
-
-        geocoder.addressSearch(customAddress, (result: any, status: any) => {
-          if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
-            const { y, x } = result[0];
-            const addr = result[0].road_address?.address_name || result[0].address?.address_name || customAddress;
-            onOriginChange({
-              name: customAddress,
-              lat: parseFloat(y),
-              lng: parseFloat(x),
-              dongKey: extractDongKey(addr),
-            });
-            setCustomAddress('');
-          } else {
-            const places = new window.kakao.maps.services.Places();
-            places.keywordSearch(customAddress, (placeResult: any, placeStatus: any) => {
-              if (placeStatus === window.kakao.maps.services.Status.OK && placeResult.length > 0) {
-                const place = placeResult[0];
-                const addr = place.address_name || place.road_address_name || '';
-                onOriginChange({
-                  name: place.place_name,
-                  lat: parseFloat(place.y),
-                  lng: parseFloat(place.x),
-                  dongKey: extractDongKey(addr),
-                });
-                setCustomAddress('');
-              } else {
-                alert('해당 주소를 찾을 수 없습니다. 다시 입력해주세요.');
-              }
-              setSearching(false);
-            });
-            return;
-          }
-          setSearching(false);
-        });
-      }
-    } catch {
-      alert('주소 검색에 실패했습니다.');
-      setSearching(false);
-    }
-  };
 
   return (
     <div className="px-4 shrink-0 relative z-10" style={{ borderBottom: '1px solid var(--panel-border)' }}>
@@ -210,100 +143,6 @@ export default function SearchBar({
         )}
       </div>
 
-      {/* 출발지 - 주소 입력 + 지도 클릭 */}
-      <div>
-        <p className="text-[11px] mb-2 flex items-center gap-1.5" style={{ color: 'var(--panel-text-muted)' }}>
-          🚩 출발지 설정 <span className="text-[9px] opacity-80">(주소 입력 또는 지도 클릭)</span>
-        </p>
-
-        {/* 현재 출발지 표시 */}
-        <div
-          className="px-3 py-2 rounded-lg mb-2"
-          style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59,130,246,0.3)' }}
-        >
-          {/* 주소: 전체 폭 사용 */}
-          <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--accent)' }}>
-            <span className="shrink-0">📍</span>
-            <span className="text-[12px] font-semibold leading-snug">{currentOrigin.name}</span>
-          </div>
-          {/* 버튼: 아랫줄 우측 정렬 */}
-          {isLoggedIn && (
-            <div className="flex items-center justify-end gap-1.5">
-              <button
-                onClick={() => save({ name: currentOrigin.name, lat: currentOrigin.lat, lng: currentOrigin.lng, dongKey: currentOrigin.dongKey })}
-                className="text-[10px] px-2 py-0.5 rounded transition-all"
-                style={{ background: 'var(--accent)', color: '#fff' }}
-                title="출발지 저장"
-              >
-                + 저장
-              </button>
-              {savedOrigins.length > 0 && (
-                <button
-                  onClick={() => setShowSaved((v) => !v)}
-                  className="text-[10px] px-2 py-0.5 rounded transition-all"
-                  style={{ background: 'var(--accent)', color: '#fff' }}
-                >
-                  {showSaved ? '닫기' : `목록 (${savedOrigins.length})`}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 저장된 출발지 목록 */}
-        {showSaved && savedOrigins.length > 0 && (
-          <div className="mb-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--panel-border)' }}>
-            {savedOrigins.map((o) => (
-              <div
-                key={o.id}
-                className="flex items-center gap-2 px-3 py-2 text-[11px] cursor-pointer transition-all"
-                style={{ borderBottom: '1px solid var(--panel-border)', color: 'var(--panel-text)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--panel-surface)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              >
-                <span
-                  className="flex-1 truncate"
-                  onClick={() => { onOriginChange({ name: o.name, lat: o.lat, lng: o.lng, dongKey: o.dongKey }); setShowSaved(false); }}
-                >
-                  📍 {o.name}
-                </span>
-                <button
-                  onClick={() => remove(o.id)}
-                  className="shrink-0 text-[10px]"
-                  style={{ color: 'var(--panel-text-muted)' }}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* 주소 입력 */}
-        <div className="flex gap-1.5">
-          <input
-            type="text"
-            value={customAddress}
-            onChange={(e) => setCustomAddress(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddressSearch()}
-            placeholder="주소 또는 장소명 입력..."
-            className="flex-1 px-3 py-2 rounded-lg text-[12px] placeholder-gray-400 outline-none"
-            style={{ color: 'var(--panel-text)', background: 'var(--panel-surface)', border: '1px solid var(--panel-border)' }}
-          />
-          <button
-            onClick={handleAddressSearch}
-            disabled={searching}
-            className="px-3 py-2 rounded-lg text-[11px] font-semibold transition-all"
-            style={{ background: 'var(--accent)', color: '#fff', opacity: searching ? 0.5 : 1 }}
-          >
-            {searching ? '...' : '검색'}
-          </button>
-        </div>
-
-        <p className="text-[10px] mt-1.5 flex items-center gap-1" style={{ color: 'var(--panel-text-muted)' }}>
-          💡 지도를 클릭해도 출발지를 지정할 수 있습니다
-        </p>
-      </div>
     </div>
   );
 }
