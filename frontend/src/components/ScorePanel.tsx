@@ -7,13 +7,13 @@ import { Weights, DEFAULT_WEIGHTS } from '@/hooks/useWeights';
 import { getUser } from '@/lib/auth';
 
 const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
-  '자연':    { bg: 'rgba(34,197,94,0.2)',   text: '#86efac' },
-  '바다/해변':{ bg: 'rgba(14,165,233,0.2)', text: '#7dd3fc' },
-  '역사/전통':{ bg: 'rgba(234,179,8,0.2)',  text: '#fde047' },
-  '문화/예술':{ bg: 'rgba(236,72,153,0.2)', text: '#f9a8d4' },
-  '박물관':  { bg: 'rgba(168,85,247,0.2)',  text: '#d8b4fe' },
-  '종교':    { bg: 'rgba(249,115,22,0.2)',  text: '#fdba74' },
-  '공원/레저':{ bg: 'rgba(20,184,166,0.2)', text: '#5eead4' },
+  '자연':    { bg: 'rgba(34,197,94,0.18)',   text: '#166534' },
+  '바다/해변':{ bg: 'rgba(14,165,233,0.18)', text: '#0369a1' },
+  '역사/전통':{ bg: 'rgba(234,179,8,0.18)',  text: '#854d0e' },
+  '문화/예술':{ bg: 'rgba(236,72,153,0.15)', text: '#9d174d' },
+  '박물관':  { bg: 'rgba(168,85,247,0.15)',  text: '#6b21a8' },
+  '종교':    { bg: 'rgba(249,115,22,0.15)',  text: '#9a3412' },
+  '공원/레저':{ bg: 'rgba(20,184,166,0.15)', text: '#115e59' },
 };
 
 interface ScorePanelProps {
@@ -184,7 +184,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
         <button
           onClick={onClose}
           className="flex items-center gap-1.5 text-[12px] mb-3 transition-colors"
-          style={{ color: 'var(--accent-light)' }}
+          style={{ color: 'var(--accent)' }}
         >
           ← 목록으로
         </button>
@@ -192,11 +192,11 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
 
       {/* 이미지 */}
       <div className="px-4 mb-4">
-        <div className="w-full h-44 rounded-xl overflow-hidden bg-gray-800">
+        <div className="w-full h-44 rounded-xl overflow-hidden bg-gray-100">
           {attraction.imageUrl ? (
             <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-500 text-4xl">📍</div>
+            <div className="w-full h-full flex items-center justify-center text-gray-400 text-4xl">📍</div>
           )}
         </div>
       </div>
@@ -236,7 +236,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
           style={{ background: 'var(--panel-surface)', border: '1px solid var(--panel-border)' }}
         >
           <p className="text-[11px] mb-3 flex items-center gap-1" style={{ color: 'var(--panel-text-muted)' }}>
-            🚩 출발: <span className="font-semibold" style={{ color: 'var(--accent-light)' }}>{origin.name}</span>
+            🚩 출발: <span className="font-semibold" style={{ color: 'var(--accent)' }}>{origin.name}</span>
           </p>
 
           {loading ? (
@@ -255,7 +255,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
               {scoreData.rawParams.isFallback && scoreData.rawParams.fallbackReason === 'tooClose' && (
                 <div
                   className="text-[10px] px-3 py-2 rounded-lg mb-3"
-                  style={{ background: 'rgba(73, 180, 222, 0.1)', color: '#7ecfee', border: '1px solid rgba(73, 180, 222, 0.2)' }}
+                  style={{ background: 'rgba(73, 180, 222, 0.12)', color: '#0369a1', border: '1px solid rgba(73, 180, 222, 0.3)' }}
                 >
                   🚶 출발지와 목적지가 너무 가까워 <b>도보 이동 가능</b> 거리입니다.
                 </div>
@@ -327,7 +327,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
                             ? '#22c55e'
                             : badge.type === 'warn'
                             ? 'var(--score-average)'
-                            : '#7ecfee',
+                            : '#0369a1',
                           border: `1px solid ${badge.type === 'good' ? 'rgba(34,197,94,0.25)' : badge.type === 'warn' ? 'rgba(249,115,22,0.25)' : 'rgba(73,180,222,0.25)'}`,
                         }}
                       >
