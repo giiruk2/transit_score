@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSavedOrigins } from '@/hooks/useSavedOrigins';
 
 interface OriginType {
@@ -19,7 +19,17 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
   const [expanded, setExpanded] = useState(false);
   const [customAddress, setCustomAddress] = useState('');
   const [searching, setSearching] = useState(false);
+  const [highlighted, setHighlighted] = useState(false);
+  const isFirst = useRef(true);
   const { savedOrigins, save, remove, isLoggedIn } = useSavedOrigins();
+
+  useEffect(() => {
+    if (isFirst.current) { isFirst.current = false; return; }
+    setHighlighted(true);
+    setExpanded(false);
+    const t = setTimeout(() => setHighlighted(false), 1200);
+    return () => clearTimeout(t);
+  }, [currentOrigin]);
 
   const extractDongKey = (addr: string): string | undefined => {
     const match = addr.match(/(\S+구|\S+군)\s+(\S+동|\S+읍|\S+면)/);
@@ -72,12 +82,15 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
       {!expanded && (
         <button
           onClick={() => setExpanded(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg transition-all hover:brightness-105 active:scale-95"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg active:scale-95"
           style={{
-            background: 'rgba(255,255,255,0.92)',
+            background: highlighted ? 'rgba(73,180,222,0.12)' : 'rgba(255,255,255,0.92)',
             backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(73,180,222,0.3)',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+            border: highlighted ? '1.5px solid var(--accent)' : '1px solid rgba(73,180,222,0.3)',
+            boxShadow: highlighted
+              ? '0 0 0 4px rgba(73,180,222,0.25), 0 4px 16px rgba(0,0,0,0.15)'
+              : '0 2px 12px rgba(0,0,0,0.15)',
+            transition: 'all 0.4s ease',
           }}
         >
           <div className="flex flex-col items-start">
