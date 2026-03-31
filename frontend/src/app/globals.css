@@ -64,6 +64,13 @@ body {
   background: var(--sidebar-text-muted);
 }
 
+/* 출발지 패널 그라데이션 테두리 애니메이션 */
+@keyframes gradientSpin {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 /* 점수 게이지 애니메이션 */
 @keyframes gauge-fill {
   from { stroke-dashoffset: 251; }

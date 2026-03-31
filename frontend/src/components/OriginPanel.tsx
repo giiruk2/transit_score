@@ -80,28 +80,40 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
     >
       {/* collapsed: 한 줄 pill */}
       {!expanded && (
+        {/* 그라데이션 테두리 래퍼 */}
+        <div
+          style={{
+            padding: highlighted ? '1.5px' : '1px',
+            borderRadius: '14px',
+            background: highlighted
+              ? 'linear-gradient(135deg, #49B4DE, #a78bfa, #f472b6, #49B4DE)'
+              : 'rgba(73,180,222,0.3)',
+            backgroundSize: highlighted ? '300% 300%' : '100%',
+            animation: highlighted ? 'gradientSpin 1.2s linear infinite' : 'none',
+            boxShadow: highlighted ? '0 0 12px rgba(73,180,222,0.4)' : '0 2px 12px rgba(0,0,0,0.15)',
+            transition: 'box-shadow 0.3s ease',
+          }}
+        >
         <button
           onClick={() => setExpanded(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg active:scale-95"
+          className="flex items-center gap-2 px-2.5 py-1.5 rounded-[12px] active:scale-95"
           style={{
-            background: highlighted ? 'rgba(73,180,222,0.12)' : 'rgba(255,255,255,0.92)',
+            background: 'rgba(255,255,255,0.96)',
             backdropFilter: 'blur(12px)',
-            border: highlighted ? '1.5px solid var(--accent)' : '1px solid rgba(73,180,222,0.3)',
-            boxShadow: highlighted
-              ? '0 0 0 4px rgba(73,180,222,0.25), 0 4px 16px rgba(0,0,0,0.15)'
-              : '0 2px 12px rgba(0,0,0,0.15)',
-            transition: 'all 0.4s ease',
+            transition: 'all 0.3s ease',
           }}
         >
           <div className="flex flex-col items-start">
-            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--panel-text)' }}>출발지</span>
-            <span className="text-[12px] font-semibold max-w-[140px] truncate leading-tight" style={{ color: 'var(--panel-text)' }}>
+            <span className="text-[9px] font-bold tracking-wider" style={{ color: 'var(--panel-text)' }}>출발지</span>
+            <span className="text-[11px] font-semibold max-w-[110px] truncate leading-tight" style={{ color: 'var(--panel-text)' }}>
               📍 {currentOrigin.name}
             </span>
           </div>
           <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium shrink-0" style={{ background: 'rgba(73,180,222,0.15)', color: 'var(--accent)' }}>
             변경
           </span>
+        </button>
+        </div>
         </button>
       )}
 
