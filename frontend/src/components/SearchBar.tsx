@@ -46,10 +46,10 @@ export default function SearchBar({
       {/* 헤더 */}
       <div className="py-4 mb-1 flex items-center gap-2">
         <div>
-          <h1 className="text-[17px] font-extrabold tracking-tight" style={{ color: 'var(--panel-text)' }}>
+          <h1 className="font-extrabold tracking-tight" style={{ fontSize: 'var(--font-lg)', color: 'var(--panel-text)' }}>
             Transit<span style={{ color: 'var(--accent)' }}>Score</span>
           </h1>
-          <p className="text-[10px]" style={{ color: 'var(--panel-text-muted)' }}>부산 관광지 대중교통 접근성</p>
+          <p style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>부산 관광지 대중교통 접근성</p>
         </div>
       </div>
 
@@ -75,8 +75,9 @@ export default function SearchBar({
               if (e.key === 'Escape') { onSearch(''); setDropdownOpen(false); }
             }}
             placeholder="관광지명 또는 주소로 검색..."
-            className="w-full pl-10 pr-8 rounded-xl text-[13px] font-medium placeholder-gray-400 outline-none transition-all"
+            className="w-full pl-10 pr-8 rounded-xl font-medium placeholder-gray-400 outline-none transition-all"
             style={{
+              fontSize: 'var(--font-sm)',
               color: 'var(--panel-text)',
               background: 'rgba(73,180,222,0.08)',
               border: '1px solid rgba(73,180,222,0.5)',
@@ -120,18 +121,18 @@ export default function SearchBar({
                   </div>
                   {/* 텍스트 */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--panel-text)' }}>
+                    <p className="font-semibold truncate" style={{ fontSize: 'var(--font-sm)', color: 'var(--panel-text)' }}>
                       {attraction.name}
                     </p>
-                    <p className="text-[10px] truncate" style={{ color: 'var(--panel-text-muted)' }}>
+                    <p className="truncate" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
                       {attraction.address}
                     </p>
                   </div>
                   {/* 카테고리 배지 */}
                   {c && (
                     <span
-                      className="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium"
-                      style={{ background: c.bg, color: c.text }}
+                      className="shrink-0 px-1.5 py-0.5 rounded font-medium"
+                      style={{ fontSize: 'var(--font-2xs)', background: c.bg, color: c.text }}
                     >
                       {attraction.category}
                     </span>

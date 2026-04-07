@@ -28,17 +28,17 @@ const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
   '공원/레저':{ bg: 'rgba(20,184,166,0.15)', text: '#115e59' },
 };
 
-// 이름 길이에 따라 폰트 크기 동적 조정
+// 이름 길이에 따라 폰트 크기 동적 조정 (CSS 변수 기반)
 function nameFontSize(name: string): string {
-  if (name.length <= 9) return '15px';
-  if (name.length <= 14) return '13px';
-  return '11.5px';
+  if (name.length <= 9) return 'var(--font-md)';
+  if (name.length <= 14) return 'var(--font-sm)';
+  return 'var(--font-xs)';
 }
 
 function ListBadge({ distanceKm }: { distanceKm: number | undefined }) {
   if (distanceKm !== undefined) {
     return (
-      <span className="text-[10px]" style={{ color: 'var(--panel-text-muted)' }}>
+      <span style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
         약 {distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`}
       </span>
     );
@@ -106,7 +106,8 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
         {isLoggedIn ? (
           <button
             onClick={() => setFavOnly((v) => !v)}
-            className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg transition-all mt-1.5"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all mt-1.5"
+            style={{ fontSize: 'var(--font-xs)' }}
             style={{
               background: favOnly ? 'rgba(244,63,94,0.15)' : 'transparent',
               color: favOnly ? '#f43f5e' : 'var(--panel-text-muted)',
@@ -114,7 +115,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
             }}
           >
             {favOnly ? '♥' : '♡'} 즐겨찾기만 보기
-            {favOnly && favorites.size > 0 && <span className="text-[10px] opacity-70">({favorites.size})</span>}
+            {favOnly && favorites.size > 0 && <span style={{ fontSize: 'var(--font-2xs)' }} className="opacity-70">({favorites.size})</span>}
           </button>
         ) : (
           <div />
@@ -198,12 +199,12 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                   </div>
                   {/* 이름 + 뱃지 */}
                   <div className="px-2 py-2">
-                    <h3 className="text-xs font-semibold leading-tight line-clamp-2" style={{ color: 'var(--panel-text)' }}>
+                    <h3 className="font-semibold leading-tight line-clamp-2" style={{ color: 'var(--panel-text)', fontSize: 'var(--font-xs)' }}>
                       {attraction.name}
                     </h3>
                     <div className="flex items-center gap-1 mt-1 flex-wrap">
                       {c && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: c.bg, color: c.text }}>
+                        <span className="px-1.5 py-0.5 rounded font-medium" style={{ fontSize: 'var(--font-2xs)', background: c.bg, color: c.text }}>
                           {attraction.category}
                         </span>
                       )}
@@ -226,13 +227,13 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                 <div
                   key={attraction.id}
                   className="w-full flex rounded-2xl overflow-hidden cursor-pointer transition-all"
-                  style={{ background: 'var(--panel-surface)', height: '96px' }}
+                  style={{ background: 'var(--panel-surface)', height: 'var(--list-card-h)' }}
                   onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
                   onClick={() => onSelect(attraction)}
                 >
                   {/* 이미지 */}
-                  <div className="relative shrink-0" style={{ width: '128px', height: '96px' }}>
+                  <div className="relative shrink-0" style={{ width: 'var(--list-card-img-w)', height: 'var(--list-card-h)' }}>
                     {attraction.imageUrl ? (
                       <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
@@ -257,8 +258,8 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                   <div className="flex flex-col justify-center px-3 py-2 gap-1.5 min-w-0 overflow-hidden">
                     {c && (
                       <span
-                        className="self-start text-[10px] font-semibold px-2.5 py-0.5 rounded-full shrink-0"
-                        style={{ background: c.bg, color: c.text }}
+                        className="self-start font-semibold px-2.5 py-0.5 rounded-full shrink-0"
+                        style={{ fontSize: 'var(--font-2xs)', background: c.bg, color: c.text }}
                       >
                         {attraction.category}
                       </span>
@@ -275,7 +276,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                           <circle cx="12" cy="5" r="2"/>
                           <path d="M12 7v5l-3 3M12 12l3 3M9 21l1.5-4M15 21l-1.5-4"/>
                         </svg>
-                        <span className="text-xs">
+                        <span style={{ fontSize: 'var(--font-2xs)' }}>
                           {distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(2)}km`}
                         </span>
                       </div>

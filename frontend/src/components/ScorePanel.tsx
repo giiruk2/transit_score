@@ -106,11 +106,11 @@ function ScoreBar({ label, value, maxValue, unit, color, score }: { label: strin
   return (
     <div className="mb-3" title={score !== undefined ? `점수: ${score.toFixed(2)}` : undefined}>
       <div className="flex justify-between items-center mb-1">
-        <span className="text-[11px]" style={{ color: 'var(--panel-text-muted)' }}>{label}</span>
-        <span className="text-[12px] font-semibold" style={{ color: 'var(--panel-text)' }}>
+        <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>{label}</span>
+        <span className="font-semibold" style={{ fontSize: 'var(--font-sm)', color: 'var(--panel-text)' }}>
           {value}{unit}
           {score !== undefined && (
-            <span className="ml-1 text-[10px] font-normal" style={{ color: 'var(--panel-text-muted)' }}>
+            <span className="ml-1 font-normal" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
               ({(score * 100).toFixed(0)}점)
             </span>
           )}
@@ -183,7 +183,8 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
       <div className="px-4 pt-3 pb-2">
         <button
           onClick={onClose}
-          className="flex items-center gap-1.5 text-[12px] mb-3 transition-colors"
+          className="flex items-center gap-1.5 mb-3 transition-colors"
+          style={{ fontSize: 'var(--font-sm)' }}
           style={{ color: 'var(--accent)' }}
         >
           ← 목록으로
@@ -215,7 +216,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
             </button>
           )}
         </div>
-        <p className="text-[12px] mt-1" style={{ color: 'var(--panel-text-muted)' }}>{attraction.address}</p>
+        <p className="mt-1" style={{ fontSize: 'var(--font-sm)', color: 'var(--panel-text-muted)' }}>{attraction.address}</p>
         {attraction.category && (() => {
           const c = CATEGORY_COLOR[attraction.category] ?? { bg: 'rgba(100,100,100,0.2)', text: '#aaa' };
           return (
@@ -235,19 +236,19 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
           className="rounded-xl p-4"
           style={{ background: 'var(--panel-surface)', border: '1px solid var(--panel-border)' }}
         >
-          <p className="text-[11px] mb-3 flex items-center gap-1" style={{ color: 'var(--panel-text-muted)' }}>
+          <p className="mb-3 flex items-center gap-1" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>
             🚩 출발: <span className="font-semibold" style={{ color: 'var(--accent)' }}>{origin.name}</span>
           </p>
 
           {loading ? (
             <div className="flex flex-col items-center py-8">
               <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-              <p className="text-[11px] mt-3" style={{ color: 'var(--panel-text-muted)' }}>경로를 분석하고 있습니다...</p>
+              <p className="mt-3" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>경로를 분석하고 있습니다...</p>
             </div>
           ) : error || !scoreData ? (
             <div className="text-center py-6">
               <span className="text-3xl mb-2 block">⚠️</span>
-              <p className="text-[12px]" style={{ color: 'var(--score-poor)' }}>점수를 불러오지 못했습니다.</p>
+              <p style={{ fontSize: 'var(--font-sm)', color: 'var(--score-poor)' }}>점수를 불러오지 못했습니다.</p>
             </div>
           ) : (
             <>
@@ -271,8 +272,8 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
 
               {/* 원형 게이지 + 등급 */}
               <div className="flex items-center gap-5 mb-5">
-                <div className="relative w-24 h-24 shrink-0">
-                  <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
+                <div className="relative shrink-0" style={{ width: 'var(--score-gauge)', height: 'var(--score-gauge)' }}>
+                  <svg className="-rotate-90" style={{ width: 'var(--score-gauge)', height: 'var(--score-gauge)' }} viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r="40" fill="none" stroke="var(--panel-border)" strokeWidth="6" />
                     <circle
                       cx="50" cy="50" r="40" fill="none"
@@ -288,7 +289,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
                     <span className="text-2xl font-bold" style={{ color: grade?.color }}>
                       {scoreData.finalScore}
                     </span>
-                    <span className="text-[9px]" style={{ color: 'var(--panel-text-muted)' }}>/ 100</span>
+                    <span style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>/ 100</span>
                   </div>
                 </div>
 
@@ -297,7 +298,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
                     <span className="text-lg">{grade?.emoji}</span>
                     <span className="text-base font-bold" style={{ color: grade?.color }}>{grade?.label}</span>
                   </div>
-                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--panel-text-muted)' }}>
+                  <p className="leading-relaxed" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>
                     {scoreData.finalScore >= 80 && '대중교통으로 편리하게 방문할 수 있습니다.'}
                     {scoreData.finalScore >= 60 && scoreData.finalScore < 80 && '대중교통 이용이 권장됩니다.'}
                     {scoreData.finalScore >= 40 && scoreData.finalScore < 60 && '환승이 다소 불편할 수 있습니다.'}
@@ -316,8 +317,9 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
                       <span
                         key={i}
                         title={badge.tooltip}
-                        className="text-[10px] px-2 py-1 rounded-full cursor-default select-none"
+                        className="px-2 py-1 rounded-full cursor-default select-none"
                         style={{
+                          fontSize: 'var(--font-2xs)',
                           background: badge.type === 'good'
                             ? 'rgba(34,197,94,0.12)'
                             : badge.type === 'warn'
@@ -340,7 +342,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
 
               {/* 세부 점수 막대그래프 */}
               <div>
-                <p className="text-[11px] font-semibold mb-3" style={{ color: 'var(--panel-text)' }}>
+                <p className="font-semibold mb-3" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>
                   세부 분석
                 </p>
                 <ScoreBar label="🕐 이동 시간" value={scoreData.rawParams.totalTimeMin} maxValue={120} unit="분" color="var(--accent)" score={scoreData.breakdown.s_time} />

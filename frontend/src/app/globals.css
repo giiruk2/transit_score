@@ -9,6 +9,16 @@
   --sidebar-text-muted: #9bbdd4;/* 연한 블루그레이 */
   --sidebar-width: 400px;
 
+  /* 반응형 텍스트/레이아웃 토큰 */
+  --font-2xs: 10px;
+  --font-xs: 11px;
+  --font-sm: 13px;
+  --font-md: 15px;
+  --font-lg: 17px;
+  --list-card-h: 96px;
+  --list-card-img-w: 128px;
+  --score-gauge: 96px;
+
   /* 점수 등급 색상 */
   --score-excellent: #22c55e;
   --score-good: #eab308;
@@ -29,6 +39,21 @@
   --panel-border: #e2e8f0;
   --panel-text: #1e293b;
   --panel-text-muted: #475569;
+}
+
+/* 1440px 이상 (27인치 모니터) */
+@media (min-width: 1440px) {
+  :root {
+    --sidebar-width: 520px;
+    --font-2xs: 12px;
+    --font-xs: 13px;
+    --font-sm: 15px;
+    --font-md: 18px;
+    --font-lg: 21px;
+    --list-card-h: 116px;
+    --list-card-img-w: 154px;
+    --score-gauge: 112px;
+  }
 }
 
 @theme inline {
