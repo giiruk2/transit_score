@@ -4,8 +4,8 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
-import { fetchOdsayRoute } from './services/routeService';
-import { calculateAccessibilityScore, DEFAULT_WEIGHTS, Weights } from './services/score';
+import { fetchOtpRoute } from './services/otpService';
+import { calculateGtt, DEFAULT_COEFFICIENTS, GttCoefficients } from './services/score';
 import { mockAttractions, mockScores } from './mockData';
 
 // 동 중심좌표 JSON 로드
@@ -32,7 +32,7 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// 1. 관광지 목록 반환 API (Prisma MySQL 조회)
+// 1. 관광지 목록 반환 API (Prisma PostgreSQL 조회)
 app.get('/api/attractions', async (req: Request, res: Response): Promise<any> => {
   try {
     const attractions = await prisma.attraction.findMany({
@@ -54,7 +54,7 @@ app.get('/api/attractions', async (req: Request, res: Response): Promise<any> =>
   }
 });
 
-// 2. 단건 관광지에 대한 접근성 점수 분석 API (ODsay 실시간 경로 탐색 연동)
+// 2. 단건 관광지에 대한 접근성 점수 분석 API (MK3 GTT 기반)
 app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise<any> => {
   const { attractionId } = req.params;
   const originLatStr = req.query.originLat as string;
@@ -79,67 +79,71 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
     return res.status(400).json({ success: false, message: "좌표값이 유효하지 않습니다." });
   }
 
-  // 2. DB에서 관광지의 무장애 점수 조회
-  let accessScore = 0.5;
-  try {
-    const attraction = await prisma.attraction.findFirst({
-      where: { OR: [{ contentId: attractionId }, { id: attractionId }] },
-      select: { accessScore: true }
-    });
-    if (attraction) accessScore = attraction.accessScore;
-  } catch (_) {
-    // DB 조회 실패 시 기본값 0.5 유지
-  }
+  // 2. MK3 GTT 계수 파라미터 파싱 (없으면 기본값 사용)
+  const alphaRaw = parseFloat(req.query.alpha as string);
+  const betaRaw  = parseFloat(req.query.beta  as string);
+  const gammaRaw = parseFloat(req.query.gamma as string);
+  const tMaxRaw  = parseInt(req.query.tMax   as string, 10);
 
-  // 3. ODsay 대중교통 경로 탐색 API 호출
+  const coefficients: GttCoefficients = {
+    alpha: isNaN(alphaRaw) ? DEFAULT_COEFFICIENTS.alpha : alphaRaw,
+    beta:  isNaN(betaRaw)  ? DEFAULT_COEFFICIENTS.beta  : betaRaw,
+    gamma: isNaN(gammaRaw) ? DEFAULT_COEFFICIENTS.gamma : gammaRaw,
+    tMax:  isNaN(tMaxRaw)  ? (DEFAULT_COEFFICIENTS.tMax ?? 0) : tMaxRaw,
+  };
+
+  // 3. OTP2 대중교통 경로 탐색
   let routeResult;
   try {
-    routeResult = await fetchOdsayRoute(originLat, originLng, destLat, destLng);
+    routeResult = await fetchOtpRoute(originLat, originLng, destLat, destLng);
   } catch (error) {
-    console.error('fetchOdsayRoute 예외:', error);
+    console.error('fetchOtpRoute 예외:', error);
     return res.status(500).json({ success: false, message: '경로 탐색 중 서버 오류가 발생했습니다.' });
   }
 
-  // 4. 가중치 파라미터 파싱 (없으면 기본값 사용)
-  let weights: Weights = DEFAULT_WEIGHTS;
-  const wTime     = parseFloat(req.query.w_time as string);
-  const wTransfer = parseFloat(req.query.w_transfer as string);
-  const wWalk     = parseFloat(req.query.w_walk as string);
-  const wWait     = parseFloat(req.query.w_wait as string);
-  const wAccess   = parseFloat(req.query.w_access as string);
+  // 4. MK3 GTT 채점
+  const gttResult = calculateGtt(routeResult, coefficients);
 
-  if (![wTime, wTransfer, wWalk, wWait, wAccess].some(isNaN)) {
-    const sum = wTime + wTransfer + wWalk + wWait + wAccess;
-    if (Math.abs(sum - 1.0) > 0.01) {
-      return res.status(400).json({ success: false, message: '가중치 합이 1.0이어야 합니다.' });
-    }
-    weights = { time: wTime, transfer: wTransfer, walk: wWalk, wait: wWait, access: wAccess };
-  }
-
-  // 5. 경로 데이터를 바탕으로 0~100점 정규화 가중합 산출
-  const scoreResult = calculateAccessibilityScore(routeResult, accessScore, weights);
-
-  // 6. dongKey가 있으면 DongScore에 동 중심좌표 기준 서브스코어 저장
+  // 5. dongKey가 있으면 DongScore에 원시 시간 컴포넌트 저장
+  //    (계수 독립적으로 저장 → 조회 시 프론트에서 GTT 계산)
   const dongKey = req.query.dongKey as string | undefined;
   if (dongKey) {
     const dongCenter = dongCenters[dongKey];
     if (dongCenter) {
-      // 동 중심좌표에서 관광지까지 별도 경로 탐색 → 동 캐시는 항상 동 중심 기준
-      fetchOdsayRoute(dongCenter.lat, dongCenter.lng, destLat, destLng)
+      fetchOtpRoute(dongCenter.lat, dongCenter.lng, destLat, destLng)
         .then((dongRouteResult) => {
-          const dongResult = calculateAccessibilityScore(dongRouteResult, accessScore);
-          const { s_time, s_transfer, s_walk, s_wait, s_access } = dongResult.breakdown;
+          const dongGtt = calculateGtt(dongRouteResult);
+          const bd = dongGtt.breakdown;
           return prisma.dongScore.upsert({
             where: { dongKey_attractionId: { dongKey, attractionId } },
-            create: { dongKey, attractionId, sTime: s_time, sTransfer: s_transfer, sWalk: s_walk, sWait: s_wait, sAccess: s_access, dongLat: dongCenter.lat, dongLng: dongCenter.lng },
-            update: { sTime: s_time, sTransfer: s_transfer, sWalk: s_walk, sWait: s_wait, sAccess: s_access, dongLat: dongCenter.lat, dongLng: dongCenter.lng, computedAt: new Date() }
+            create: {
+              dongKey,
+              attractionId,
+              tInvehicle: bd.T_invehicle,
+              tWalk:      bd.T_walk_raw,
+              tWait:      bd.T_wait_raw,
+              nTransfer:  bd.N_transfer,
+              hasLowFloor: dongRouteResult.hasLowFloor,
+              dongLat: dongCenter.lat,
+              dongLng: dongCenter.lng,
+            },
+            update: {
+              tInvehicle: bd.T_invehicle,
+              tWalk:      bd.T_walk_raw,
+              tWait:      bd.T_wait_raw,
+              nTransfer:  bd.N_transfer,
+              hasLowFloor: dongRouteResult.hasLowFloor,
+              dongLat: dongCenter.lat,
+              dongLng: dongCenter.lng,
+              computedAt: new Date(),
+            }
           });
         })
         .catch(() => {});
     }
   }
 
-  // 7. 로그인 사용자면 ScoreSnapshot 저장
+  // 6. 로그인 사용자면 ScoreSnapshot 저장
   const userId = req.query.userId as string | undefined;
   if (userId) {
     prisma.scoreSnapshot.create({
@@ -149,31 +153,34 @@ app.get('/api/score/:attractionId', async (req: Request, res: Response): Promise
         originName: req.query.originName as string || '',
         originLat,
         originLng,
-        totalTimeMin: scoreResult.rawParams.totalTimeMin,
-        transferCount: scoreResult.rawParams.transferCount,
-        walkDistanceM: scoreResult.rawParams.walkDistanceM,
-        waitTimeMin: scoreResult.rawParams.waitTimeMin,
-        finalScore: scoreResult.finalScore,
-        breakdown: scoreResult.breakdown as object,
+        totalTimeMin: routeResult.totalTimeMin,
+        transferCount: routeResult.transferCount,
+        walkDistanceM: routeResult.walkDistanceM,
+        waitTimeMin: Math.round(routeResult.waitTimeMin),
+        gtt: gttResult.gtt,
+        grade: gttResult.grade,
+        alpha: coefficients.alpha,
+        beta:  coefficients.beta,
+        gamma: coefficients.gamma,
+        finalScore: gttResult.gtt,  // 하위 호환용
+        breakdown: gttResult.breakdown as object,
       }
     }).catch(() => {});
   }
 
-  // 8. 최종 결과 반환
+  // 7. 최종 결과 반환
   return res.json({
     success: true,
     data: {
       attractionId,
       originLocation: { lat: originLat, lng: originLng },
-      scoreDetails: scoreResult
+      scoreDetails: gttResult,
     }
   });
 });
 
 // 3. 동별 관광지 점수 조회 API (캐시 읽기 전용)
 // GET /api/dong-scores?dong=해운대구 중동
-// - DB에 저장된 점수만 반환 (새 계산 없음)
-// - 점수는 관광지 클릭(ScorePanel) 시 /api/score/:id에서 저장됨
 app.get('/api/dong-scores', async (req: Request, res: Response): Promise<any> => {
   const dongKey = req.query.dong as string;
   if (!dongKey) {
@@ -182,14 +189,16 @@ app.get('/api/dong-scores', async (req: Request, res: Response): Promise<any> =>
 
   try {
     const rows = await prisma.dongScore.findMany({ where: { dongKey } });
-    const data: Record<string, { sTime: number; sTransfer: number; sWalk: number; sWait: number; sAccess: number }> = {};
+    const data: Record<string, {
+      tInvehicle: number; tWalk: number; tWait: number; nTransfer: number; hasLowFloor: boolean;
+    }> = {};
     rows.forEach((row) => {
       data[row.attractionId] = {
-        sTime: row.sTime,
-        sTransfer: row.sTransfer,
-        sWalk: row.sWalk,
-        sWait: row.sWait,
-        sAccess: row.sAccess,
+        tInvehicle:  row.tInvehicle,
+        tWalk:       row.tWalk,
+        tWait:       row.tWait,
+        nTransfer:   row.nTransfer,
+        hasLowFloor: row.hasLowFloor,
       };
     });
     return res.json({ success: true, data });
@@ -198,7 +207,7 @@ app.get('/api/dong-scores', async (req: Request, res: Response): Promise<any> =>
   }
 });
 
-// 4. AHP 설문 응답 저장 API
+// 4. AHP 설문 응답 저장 API (레거시 보존)
 app.post('/api/weights', async (req: Request, res: Response): Promise<any> => {
   const { a12, a13, a14, a15, a23, a24, a25, a34, a35, a45, cr } = req.body;
 
@@ -290,7 +299,7 @@ app.delete('/api/saved-origins/:id', async (req: Request, res: Response): Promis
   }
 });
 
-// 11. 사용자 가중치 조회 API
+// 11. 사용자 GTT 계수 조회 API (MK3)
 app.get('/api/user-weights/:userId', async (req: Request, res: Response): Promise<any> => {
   const { userId } = req.params;
   try {
@@ -298,24 +307,24 @@ app.get('/api/user-weights/:userId', async (req: Request, res: Response): Promis
     if (!row) return res.json({ success: true, data: null });
     return res.json({
       success: true,
-      data: { time: row.time, transfer: row.transfer, walk: row.walk, wait: row.wait, access: row.access, cr: row.cr }
+      data: { alpha: row.alpha, beta: row.beta, gamma: row.gamma, tMax: row.tMax }
     });
   } catch {
     return res.status(500).json({ success: false, message: 'DB 조회 오류' });
   }
 });
 
-// 6. 사용자 가중치 저장/업데이트 API
+// 12. 사용자 GTT 계수 저장/업데이트 API (MK3)
 app.post('/api/user-weights', async (req: Request, res: Response): Promise<any> => {
-  const { userId, time, transfer, walk, wait, access, cr } = req.body;
-  if (!userId || [time, transfer, walk, wait, access, cr].some((v) => typeof v !== 'number' || isNaN(v))) {
+  const { userId, alpha, beta, gamma, tMax } = req.body;
+  if (!userId || [alpha, beta, gamma].some((v) => typeof v !== 'number' || isNaN(v))) {
     return res.status(400).json({ success: false, message: '요청값이 올바르지 않습니다.' });
   }
   try {
     await prisma.userWeight.upsert({
       where: { userId },
-      create: { userId, time, transfer, walk, wait, access, cr },
-      update: { time, transfer, walk, wait, access, cr },
+      create: { userId, alpha, beta, gamma, tMax: tMax ?? 0 },
+      update: { alpha, beta, gamma, tMax: tMax ?? 0 },
     });
     return res.json({ success: true });
   } catch {
@@ -323,6 +332,59 @@ app.post('/api/user-weights', async (req: Request, res: Response): Promise<any> 
   }
 });
 
+// 13. 저장된 경로 조회 API
+app.get('/api/saved-routes/:userId', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const rows = await prisma.savedRoute.findMany({
+      where: { userId: req.params.userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return res.json({ success: true, data: rows });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 조회 오류' });
+  }
+});
+
+// 14. 저장된 경로 추가 API
+app.post('/api/saved-routes', async (req: Request, res: Response): Promise<any> => {
+  const { userId, name, originName, originLat, originLng, attractionId, attractionName, attractionLat, attractionLng, legs, totalTimeMin } = req.body;
+  if (!userId || !name || !originName || originLat == null || originLng == null || !attractionId || !attractionName || attractionLat == null || attractionLng == null || !legs) {
+    return res.status(400).json({ success: false, message: '필수 파라미터 누락' });
+  }
+  try {
+    const row = await prisma.savedRoute.create({
+      data: { userId, name, originName, originLat, originLng, attractionId, attractionName, attractionLat, attractionLng, legs, totalTimeMin: totalTimeMin ?? 0 },
+    });
+    return res.json({ success: true, data: row });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 오류' });
+  }
+});
+
+// 15. 저장된 경로 이름 변경 API
+app.patch('/api/saved-routes/:id', async (req: Request, res: Response): Promise<any> => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ success: false, message: 'name 필수' });
+  try {
+    const row = await prisma.savedRoute.update({ where: { id: req.params.id }, data: { name } });
+    return res.json({ success: true, data: row });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 오류' });
+  }
+});
+
+// 16. 저장된 경로 삭제 API
+app.delete('/api/saved-routes/:id', async (req: Request, res: Response): Promise<any> => {
+  try {
+    await prisma.savedRoute.delete({ where: { id: req.params.id } });
+    return res.json({ success: true });
+  } catch {
+    return res.status(500).json({ success: false, message: 'DB 오류' });
+  }
+});
+
+// OTP2는 별도 컨테이너로 동작하므로 사전 데이터 로드 불필요
 app.listen(port, '0.0.0.0', () => {
   console.log(`[server]: Server is running at http://0.0.0.0:${port} (Accessible via network IP)`);
+  console.log(`[server]: OTP2 endpoint: ${process.env.OTP_URL || 'http://localhost:8080'}`);
 });

@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getUser, onAuthStateChange } from '@/lib/auth';
-import type { Weights } from './useWeights';
+import type { GttCoefficients } from './useWeights';
 
 export interface WeightPreset {
   id: string;
   name: string;
-  weights: Weights;
+  weights: GttCoefficients;
   savedAt: string;
 }
 
@@ -47,7 +47,7 @@ export function useWeightPresets() {
     localStorage.setItem(storageKey(uid), JSON.stringify(next));
   }, []);
 
-  const savePreset = useCallback((name: string, weights: Weights) => {
+  const savePreset = useCallback((name: string, weights: GttCoefficients) => {
     if (!userId) return null;
     const preset: WeightPreset = {
       id: `preset_${Date.now()}`,

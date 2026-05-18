@@ -1,20 +1,6 @@
 version: '3.8'
 
 services:
-  db:
-    image: mysql:8.0
-    container_name: transitscore_db
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_USER: user
-      MYSQL_PASSWORD: password
-      MYSQL_DATABASE: transitscore
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    restart: always
-
   redis:
     image: redis:7
     container_name: transitscore_redis
@@ -22,5 +8,48 @@ services:
       - "6379:6379"
     restart: always
 
-volumes:
-  mysql_data:
+  otp:
+    image: docker.io/opentripplanner/opentripplanner:2.6.0
+    container_name: transitscore_otp
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./otp-data:/var/opentripplanner
+    command: ["--load", "--serve"]
+    mem_limit: 4g
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/otp/routers/default || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 180s
+
+  backend:
+    build: ./backend
+    container_name: transitscore_backend
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./backend/.env
+    environment:
+      OTP_URL: http://otp:8080
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./data:/data
+    depends_on:
+      - redis
+      - otp
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: transitscore_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:5001
+    depends_on:
+      - backend
+    restart: unless-stopped
+

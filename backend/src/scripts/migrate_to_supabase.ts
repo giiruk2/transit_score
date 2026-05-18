@@ -31,9 +31,10 @@ async function migrate() {
       where: { dongKey_attractionId: { dongKey: d.dongKey, attractionId: d.attractionId } },
       create: {
         id: d.id, dongKey: d.dongKey, attractionId: d.attractionId,
-        score: d.score, dongLat: d.dongLat, dongLng: d.dongLng, computedAt: d.computedAt,
+        tInvehicle: 0, tWalk: 0, tWait: 0, nTransfer: 0, hasLowFloor: false,
+        dongLat: d.dongLat, dongLng: d.dongLng, computedAt: d.computedAt,
       },
-      update: { score: d.score },
+      update: { tInvehicle: 0, tWalk: 0, tWait: 0, nTransfer: 0 },
     });
   }
   console.log(`✅ DongScore ${dongScores.length}개`);

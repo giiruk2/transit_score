@@ -34,7 +34,11 @@ logs/
 testing/
 
 # Large raw data files
-data/*.csv
+data/
+otp-data/
+
+# Claude Code internal
+.claude/
 
 # Build and Temp folders
 frontend/.next/

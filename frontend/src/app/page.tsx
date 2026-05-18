@@ -6,12 +6,14 @@ import SearchBar from '@/components/SearchBar';
 import AttractionList from '@/components/AttractionList';
 import ScorePanel from '@/components/ScorePanel';
 import WeightSurvey from '@/components/WeightSurvey';
-import { useWeights } from '@/hooks/useWeights';
+import { useWeights, GttCoefficients } from '@/hooks/useWeights';
 import { useWeightPresets } from '@/hooks/useWeightPresets';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useSavedOrigins } from '@/hooks/useSavedOrigins';
+import { useSavedRoutes } from '@/hooks/useSavedRoutes';
 import LoginButton from '@/components/LoginButton';
 import OriginPanel from '@/components/OriginPanel';
+import { signInWithGoogle } from '@/lib/auth';
 
 // 관광지 데이터 타입
 export interface Attraction {
@@ -25,13 +27,13 @@ export interface Attraction {
   category?: string;
 }
 
-// 동 캐시에서 받는 서브스코어 타입 (가중치와 독립적)
-interface SubScores {
-  sTime: number;
-  sTransfer: number;
-  sWalk: number;
-  sWait: number;
-  sAccess: number;
+// 동 캐시에서 받는 MK3 시간 컴포넌트
+interface DongComponents {
+  tInvehicle: number;
+  tWalk:      number;
+  tWait:      number;
+  nTransfer:  number;
+  hasLowFloor: boolean;
 }
 
 // 기본 출발지 (부산역)
@@ -58,6 +60,7 @@ export default function Home() {
   const [selectedAttraction, setSelectedAttraction] = useState<Attraction | null>(null);
   const [currentOrigin, setCurrentOrigin] = useState<{ name: string; lat: number; lng: number; dongKey?: string }>(defaultOrigin);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeLegs, setActiveLegs] = useState<import('@/components/MapViewer').RouteLeg[]>([]);
 
   const handleAttractionsLoaded = useCallback((data: Attraction[]) => {
     const cleaned = data.map((a) => ({ ...a, name: cleanName(a.name) }));
@@ -86,11 +89,13 @@ export default function Home() {
   const handleOriginChange = useCallback((origin: { name: string; lat: number; lng: number; dongKey?: string }) => {
     setCurrentOrigin(origin);
     setSelectedAttraction(null);
+    setActiveLegs([]);
     setSubScores({});
   }, []);
 
   const handleClosePanel = useCallback(() => {
     setSelectedAttraction(null);
+    setActiveLegs([]);
   }, []);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -98,41 +103,78 @@ export default function Home() {
     setSelectedCategory((prev) => (prev === cat ? null : cat));
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'attractions' | 'profile' | 'weights'>('attractions');
-  const { weights, isCustom, saveWeights, resetWeights } = useWeights();
+  const [activeTab, setActiveTab] = useState<'attractions' | 'routes' | 'profile' | 'weights'>('attractions');
+  const { coefficients, isCustom, saveCoefficients, resetCoefficients } = useWeights();
   const { presets, savePreset, renamePreset, deletePreset, isLoggedIn: isLoggedInPresets } = useWeightPresets();
-  const [draftWeights, setDraftWeights] = useState<typeof weights | null>(null);
+  const [draftCoefficients, setDraftCoefficients] = useState<GttCoefficients | null>(null);
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
   const [editingPresetName, setEditingPresetName] = useState('');
-  const displayWeights = draftWeights ?? weights;
+  const displayCoefficients = draftCoefficients ?? coefficients;
 
-  const handleSliderChange = useCallback((key: keyof typeof weights, value: number) => {
-    setDraftWeights((prev) => {
-      const base = prev ?? weights;
-      const clamped = Math.min(0.95, Math.max(0.05, value));
-      const remaining = 1 - clamped;
-      const otherKeys = (Object.keys(base) as (keyof typeof weights)[]).filter((k) => k !== key);
-      const otherSum = otherKeys.reduce((s, k) => s + base[k], 0);
-      const next = { ...base, [key]: clamped };
-      if (otherSum > 0) {
-        otherKeys.forEach((k) => { next[k] = base[k] * (remaining / otherSum); });
-      } else {
-        otherKeys.forEach((k) => { next[k] = remaining / otherKeys.length; });
-      }
-      return next;
-    });
-  }, [weights]);
+  // 계수 슬라이더 변경 (α/β/γ/tMax 독립 변경)
+  const handleCoefficientChange = useCallback((key: keyof GttCoefficients, value: number) => {
+    setDraftCoefficients((prev) => ({ ...(prev ?? coefficients), [key]: value }));
+  }, [coefficients]);
+
   const { favorites, toggle: toggleFavorite, isLoggedIn } = useFavorites();
   const { savedOrigins, remove: removeSavedOrigin, isLoggedIn: isLoggedInOrigins } = useSavedOrigins();
+  const { savedRoutes, save: saveRoute, rename: renameRoute, remove: removeRoute, isLoggedIn: isLoggedInRoutes } = useSavedRoutes();
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [editingRouteName, setEditingRouteName] = useState('');
   const [showSurvey, setShowSurvey] = useState(false);
 
-  // 동별 DB 서브스코어 (출발지 동 변경 시 API 조회로 채워짐)
-  const [subScores, setSubScores] = useState<Record<string, SubScores>>({});
-  const [categoryOpen, setCategoryOpen] = useState(true);
+  const handleSaveRoute = useCallback(async () => {
+    if (!isLoggedInRoutes) {
+      signInWithGoogle();
+      return;
+    }
+    if (!selectedAttraction || activeLegs.length === 0) return;
+    const name = `${currentOrigin.name} → ${selectedAttraction.name}`;
+    await saveRoute({
+      name,
+      originName: currentOrigin.name,
+      originLat: currentOrigin.lat,
+      originLng: currentOrigin.lng,
+      attractionId: selectedAttraction.id,
+      attractionName: selectedAttraction.name,
+      attractionLat: selectedAttraction.lat,
+      attractionLng: selectedAttraction.lng,
+      legs: activeLegs,
+      totalTimeMin: 0,
+    });
+    setActiveTab('routes');
+  }, [isLoggedInRoutes, selectedAttraction, activeLegs, currentOrigin, saveRoute]);
 
-  // 출발지 변경 시 동 서브스코어 조회
+  // 동별 DB 시간 컴포넌트 (출발지 동 변경 시 API 조회로 채워짐)
+  const [subScores, setSubScores] = useState<Record<string, DongComponents>>({});
+  const [categoryOpen, setCategoryOpen] = useState(true);
+  const [dongCenters, setDongCenters] = useState<Record<string, { lat: number; lng: number }>>({});
+
+  // dong_centers.json 로드
   useEffect(() => {
-    const dongKey = currentOrigin.dongKey;
+    fetch('/dong_centers.json')
+      .then((r) => r.json())
+      .then(setDongCenters)
+      .catch(() => {});
+  }, []);
+
+  // lat/lng → 가장 가까운 동 중심 dongKey 찾기
+  function resolveNearestDongKey(lat: number, lng: number): string | undefined {
+    const entries = Object.entries(dongCenters);
+    if (entries.length === 0) return undefined;
+    let bestKey = '';
+    let bestDist = Infinity;
+    for (const [key, center] of entries) {
+      const d = (center.lat - lat) ** 2 + (center.lng - lng) ** 2;
+      if (d < bestDist) { bestDist = d; bestKey = key; }
+    }
+    return bestKey || undefined;
+  }
+
+  // 출발지 변경 시 가장 가까운 동 확정 후 점수 조회
+  useEffect(() => {
+    if (Object.keys(dongCenters).length === 0) return;
+    const dongKey = resolveNearestDongKey(currentOrigin.lat, currentOrigin.lng);
     if (!dongKey) return;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
     fetch(`${apiUrl}/api/dong-scores?dong=${encodeURIComponent(dongKey)}`)
@@ -141,24 +183,22 @@ export default function Home() {
         if (json.success) setSubScores(json.data);
       })
       .catch(() => {});
-  }, [currentOrigin]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentOrigin, dongCenters]);
 
-  // 서브스코어 + 현재 가중치로 finalScore 계산 (가중치 변경 시 즉시 재정렬)
+  // GTT 계산 (계수 변경 시 즉시 재정렬, 낮을수록 좋음)
   const scores = useMemo<Record<string, number>>(() => {
     const result: Record<string, number> = {};
     Object.entries(subScores).forEach(([id, s]) => {
-      result[id] = 100 * (
-        weights.time     * s.sTime +
-        weights.transfer * s.sTransfer +
-        weights.walk     * s.sWalk +
-        weights.wait     * s.sWait +
-        weights.access   * s.sAccess
-      );
+      result[id] = s.tInvehicle
+        + coefficients.alpha * s.tWalk
+        + coefficients.beta  * s.tWait
+        + coefficients.gamma * s.nTransfer;
     });
     return result;
-  }, [subScores, weights]);
+  }, [subScores, coefficients]);
 
-  // 거리 기반 보조 정렬값 (출발지 변경 시 즉시 재계산, API 0건)
+  // 거리 기반 보조 정렬값 (출발지 변경 시 즉시 재계산)
   const distances = useMemo<Record<string, number>>(() => {
     const result: Record<string, number> = {};
     attractions.forEach((a) => {
@@ -171,8 +211,8 @@ export default function Home() {
     <>
     {showSurvey && (
       <WeightSurvey
-        onComplete={(newWeights, cr) => {
-          saveWeights(newWeights, cr);
+        onComplete={(newCoefficients) => {
+          saveCoefficients(newCoefficients);
           setShowSurvey(false);
         }}
         onClose={() => setShowSurvey(false)}
@@ -196,8 +236,9 @@ export default function Home() {
           {/* 탭 버튼 */}
           {([
             { id: 'attractions', icon: '🗺', label: '관광지' },
+            { id: 'routes',      icon: '🛤', label: '경로' },
             { id: 'profile',     icon: '👤', label: '내 정보' },
-            { id: 'weights',     icon: '⚙️', label: '가중치' },
+            { id: 'weights',     icon: '⚙️', label: '설정' },
           ] as const).map(({ id, icon, label }) => {
             const isActive = activeTab === id;
             return (
@@ -236,11 +277,12 @@ export default function Home() {
                   attraction={selectedAttraction}
                   origin={currentOrigin}
                   onClose={handleClosePanel}
-                  weights={weights}
+                  coefficients={coefficients}
                   dongKey={currentOrigin.dongKey}
                   favorites={favorites}
                   onToggleFavorite={toggleFavorite}
                   isLoggedIn={isLoggedIn}
+                  onLegsChange={setActiveLegs}
                 />
               ) : (
                 <AttractionList
@@ -265,6 +307,92 @@ export default function Home() {
               <span>출발: {currentOrigin.name}</span>
             </div>
           </>}
+
+          {/* 경로 탭 */}
+          {activeTab === 'routes' && (
+            <div className="flex flex-col h-full overflow-hidden">
+              <div className="px-4 py-4 shrink-0" style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                <p className="font-bold text-sm" style={{ color: 'var(--panel-text)' }}>저장된 경로</p>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--panel-text-muted)' }}>폴리라인 우클릭 → 경로 저장</p>
+              </div>
+              {!isLoggedInRoutes ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
+                  <p className="text-[12px] text-center" style={{ color: 'var(--panel-text-muted)' }}>로그인 후 경로를 저장할 수 있습니다</p>
+                  <button
+                    onClick={() => signInWithGoogle()}
+                    className="px-4 py-2 rounded-xl text-[12px] font-semibold"
+                    style={{ background: 'var(--accent)', color: '#fff' }}
+                  >
+                    로그인
+                  </button>
+                </div>
+              ) : savedRoutes.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="text-[12px]" style={{ color: 'var(--panel-text-muted)' }}>저장된 경로가 없습니다</p>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3 flex flex-col gap-2">
+                  {savedRoutes.map((route) => (
+                    <div
+                      key={route.id}
+                      className="rounded-xl px-3 py-2.5 cursor-pointer transition-all"
+                      style={{ background: 'var(--panel-surface)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                      onClick={() => {
+                        const attraction = attractions.find((a) => a.id === route.attractionId);
+                        if (attraction) {
+                          setCurrentOrigin({ name: route.originName, lat: route.originLat, lng: route.originLng });
+                          setSelectedAttraction(attraction);
+                          setActiveLegs(route.legs);
+                          setActiveTab('attractions');
+                        }
+                      }}
+                    >
+                      {editingRouteId === route.id ? (
+                        <input
+                          autoFocus
+                          value={editingRouteName}
+                          onChange={(e) => setEditingRouteName(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onBlur={() => { if (editingRouteName.trim()) renameRoute(route.id, editingRouteName.trim()); setEditingRouteId(null); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { if (editingRouteName.trim()) renameRoute(route.id, editingRouteName.trim()); setEditingRouteId(null); }
+                            if (e.key === 'Escape') setEditingRouteId(null);
+                          }}
+                          className="w-full text-[12px] font-semibold bg-transparent outline-none border-b pb-0.5"
+                          style={{ color: 'var(--panel-text)', borderColor: 'var(--accent)' }}
+                        />
+                      ) : (
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--panel-text)' }}>{route.name}</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--panel-text-muted)' }}>
+                              {new Date(route.createdAt).toLocaleDateString('ko-KR')}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingRouteId(route.id); setEditingRouteName(route.name); }}
+                              className="text-[10px] px-2 py-0.5 rounded-lg"
+                              style={{ background: 'rgba(73,180,222,0.15)', color: 'var(--accent)' }}
+                            >
+                              수정
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); removeRoute(route.id); }}
+                              className="text-[11px] w-5 h-5 flex items-center justify-center rounded"
+                              style={{ color: 'var(--panel-text-muted)' }}
+                            >✕</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 내 정보 탭 */}
           {activeTab === 'profile' && (
@@ -356,57 +484,92 @@ export default function Home() {
             </div>
           )}
 
-          {/* 가중치 탭 */}
+          {/* 설정 탭 (가중치 → GTT 계수) */}
           {activeTab === 'weights' && (
             <div className="flex flex-col h-full overflow-hidden">
               <div className="px-4 py-4 shrink-0" style={{ borderBottom: '1px solid var(--panel-border)' }}>
-                <p className="font-bold text-sm" style={{ color: 'var(--panel-text)' }}>가중치 설정</p>
+                <p className="font-bold text-sm" style={{ color: 'var(--panel-text)' }}>이동 조건 설정</p>
                 <p className="text-[11px] mt-1" style={{ color: 'var(--panel-text-muted)' }}>
-                  {draftWeights ? '수정 중 — 저장 버튼을 눌러 적용' : isCustom ? '맞춤 가중치 적용 중' : '기본 가중치 사용 중'}
+                  {draftCoefficients ? '수정 중 — 저장 버튼을 눌러 적용' : isCustom ? '맞춤 설정 적용 중' : '기본 설정 사용 중'}
                 </p>
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4">
+
+                {/* α 슬라이더 */}
                 {([
-                  { label: '이동시간', key: 'time',     color: '#49B4DE' },
-                  { label: '환승',    key: 'transfer', color: '#0ea5e9' },
-                  { label: '도보',    key: 'walk',     color: '#22c55e' },
-                  { label: '대기',    key: 'wait',     color: '#f59e0b' },
-                  { label: '접근성',  key: 'access',   color: '#ec4899' },
-                ] as const).map(({ label, key, color }) => (
-                  <div key={key} className="mb-5">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-[12px] font-medium" style={{ color: 'var(--panel-text)' }}>{label}</span>
-                      <span className="text-[13px] font-bold" style={{ color }}>{Math.round(displayWeights[key] * 100)}%</span>
+                  { label: '걷기 부담 (α)',    key: 'alpha' as const, min: 10, max: 25, step: 1, display: (v: number) => (v / 10).toFixed(1), parse: (v: number) => v / 10, color: '#22c55e', desc: '도보시간 가중치 (기본 2.0×)' },
+                  { label: '기다림 부담 (β)',   key: 'beta'  as const, min: 10, max: 35, step: 1, display: (v: number) => (v / 10).toFixed(1), parse: (v: number) => v / 10, color: '#f59e0b', desc: '대기시간 가중치 (기본 2.5×)' },
+                  { label: '환승 패널티 (γ분)', key: 'gamma' as const, min:  0, max: 20, step: 1, display: (v: number) => `${v}분`,            parse: (v: number) => v,       color: '#8b5cf6', desc: '환승당 가산 시간 (기본 13분)' },
+                ] as const).map(({ label, key, min, max, step, display, parse, color, desc }) => {
+                  const rawValue = key === 'alpha' ? Math.round(displayCoefficients.alpha * 10)
+                    : key === 'beta' ? Math.round(displayCoefficients.beta * 10)
+                    : displayCoefficients.gamma;
+                  return (
+                    <div key={key} className="mb-5">
+                      <div className="flex justify-between items-center mb-1">
+                        <div>
+                          <span className="text-[12px] font-medium" style={{ color: 'var(--panel-text)' }}>{label}</span>
+                        </div>
+                        <span className="text-[13px] font-bold" style={{ color }}>{display(rawValue)}</span>
+                      </div>
+                      <p className="text-[10px] mb-1.5" style={{ color: 'var(--panel-text-muted)' }}>{desc}</p>
+                      <input
+                        type="range"
+                        min={min}
+                        max={max}
+                        step={step}
+                        value={rawValue}
+                        onChange={(e) => handleCoefficientChange(key, parse(Number(e.target.value)))}
+                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                        style={{
+                          accentColor: color,
+                          background: `linear-gradient(to right, ${color} ${((rawValue - min) / (max - min)) * 100}%, var(--panel-border) ${((rawValue - min) / (max - min)) * 100}%)`,
+                        }}
+                      />
                     </div>
-                    <input
-                      type="range"
-                      min={5}
-                      max={95}
-                      step={1}
-                      value={Math.round(displayWeights[key] * 100)}
-                      onChange={(e) => handleSliderChange(key, Number(e.target.value) / 100)}
-                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-                      style={{
-                        accentColor: color,
-                        background: `linear-gradient(to right, ${color} ${Math.round(displayWeights[key] * 100)}%, var(--panel-border) ${Math.round(displayWeights[key] * 100)}%)`,
-                      }}
-                    />
+                  );
+                })}
+
+                {/* tMax 버튼 선택 */}
+                <div className="mb-5">
+                  <p className="text-[12px] font-medium mb-1" style={{ color: 'var(--panel-text)' }}>최대 이동시간</p>
+                  <p className="text-[10px] mb-2" style={{ color: 'var(--panel-text-muted)' }}>실제 이동시간(탑승+도보+대기) 기준</p>
+                  <div className="flex gap-2">
+                    {([
+                      { label: '제한없음', value: 0 },
+                      { label: '30분', value: 30 },
+                      { label: '60분', value: 60 },
+                      { label: '90분', value: 90 },
+                    ] as const).map(({ label, value }) => (
+                      <button
+                        key={value}
+                        onClick={() => handleCoefficientChange('tMax', value)}
+                        className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                        style={{
+                          background: displayCoefficients.tMax === value ? 'var(--accent)' : 'var(--panel-surface)',
+                          color: displayCoefficients.tMax === value ? '#fff' : 'var(--panel-text-muted)',
+                          border: `1px solid ${displayCoefficients.tMax === value ? 'var(--accent)' : 'var(--panel-border)'}`,
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                ))}
+                </div>
 
                 <div className="flex gap-2 mt-2">
-                  {draftWeights && (
+                  {draftCoefficients && (
                     <button
-                      onClick={() => { saveWeights(draftWeights, 0); setDraftWeights(null); }}
+                      onClick={() => { saveCoefficients(draftCoefficients); setDraftCoefficients(null); }}
                       className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-all"
                       style={{ background: 'var(--accent)', color: '#fff' }}
                     >
                       저장
                     </button>
                   )}
-                  {draftWeights && (
+                  {draftCoefficients && (
                     <button
-                      onClick={() => setDraftWeights(null)}
+                      onClick={() => setDraftCoefficients(null)}
                       className="py-2.5 px-3 rounded-xl text-[12px] transition-all"
                       style={{ background: 'var(--panel-surface)', color: 'var(--panel-text-muted)' }}
                     >
@@ -426,11 +589,11 @@ export default function Home() {
                       border: '1px solid rgba(255,255,255,0.15)',
                     }}
                   >
-                    ✨ 내 취향 분석하기
+                    ✨ 내 취향 설정하기
                   </button>
                   {isCustom && (
                     <button
-                      onClick={() => { resetWeights(); setDraftWeights(null); }}
+                      onClick={() => { resetCoefficients(); setDraftCoefficients(null); }}
                       className="py-2 px-3 rounded-xl text-[12px] transition-all"
                       style={{ background: 'var(--panel-surface)', color: 'var(--panel-text-muted)' }}
                     >
@@ -442,12 +605,12 @@ export default function Home() {
                 {/* 프리셋 저장 */}
                 <div className="mt-6" style={{ borderTop: '1px solid var(--panel-border)', paddingTop: '16px' }}>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-[12px] font-semibold" style={{ color: 'var(--panel-text)' }}>저장된 가중치</p>
+                    <p className="text-[12px] font-semibold" style={{ color: 'var(--panel-text)' }}>저장된 설정</p>
                     {isLoggedInPresets ? (
                       <button
                         onClick={() => {
                           const name = `내 설정 ${presets.length + 1}`;
-                          savePreset(name, displayWeights);
+                          savePreset(name, displayCoefficients);
                         }}
                         className="text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all"
                         style={{ background: 'rgba(73,180,222,0.2)', color: '#7ecfee' }}
@@ -461,11 +624,11 @@ export default function Home() {
 
                   {!isLoggedInPresets ? (
                     <p className="text-[11px] text-center py-4" style={{ color: 'var(--panel-text-muted)' }}>
-                      로그인 후 가중치를 저장할 수 있습니다
+                      로그인 후 설정을 저장할 수 있습니다
                     </p>
                   ) : presets.length === 0 ? (
                     <p className="text-[11px] text-center py-4" style={{ color: 'var(--panel-text-muted)' }}>
-                      저장된 가중치가 없습니다
+                      저장된 설정이 없습니다
                     </p>
                   ) : (
                     <div className="flex flex-col gap-2">
@@ -475,7 +638,6 @@ export default function Home() {
                           className="rounded-xl px-3 py-2.5"
                           style={{ background: 'var(--panel-surface)' }}
                         >
-                          {/* 이름 (클릭 시 편집) */}
                           {editingPresetId === preset.id ? (
                             <input
                               autoFocus
@@ -507,7 +669,7 @@ export default function Home() {
                               </button>
                               <div className="flex items-center gap-1 shrink-0">
                                 <button
-                                  onClick={() => { saveWeights(preset.weights, 0); setDraftWeights(null); }}
+                                  onClick={() => { saveCoefficients(preset.weights); setDraftCoefficients(null); }}
                                   className="text-[10px] px-2 py-0.5 rounded-lg font-medium"
                                   style={{ background: 'rgba(73,180,222,0.2)', color: '#7ecfee' }}
                                 >
@@ -524,20 +686,25 @@ export default function Home() {
                             </div>
                           )}
 
-                          {/* 미니 바 미리보기 */}
-                          <div className="flex gap-1 mt-2">
+                          {/* 미니 바 (α/β/γ 시각화) */}
+                          <div className="flex gap-2 mt-2">
                             {([
-                              { key: 'time',     color: '#49B4DE' },
-                              { key: 'transfer', color: '#3B8AC4' },
-                              { key: 'walk',     color: '#22c55e' },
-                              { key: 'wait',     color: '#f59e0b' },
-                              { key: 'access',   color: '#ec4899' },
-                            ] as const).map(({ key, color }) => (
-                              <div
-                                key={key}
-                                className="h-1 rounded-full"
-                                style={{ flex: preset.weights[key], background: color, minWidth: '2px' }}
-                              />
+                              { key: 'alpha' as const, label: 'α', max: 2.5, color: '#22c55e' },
+                              { key: 'beta'  as const, label: 'β', max: 3.5, color: '#f59e0b' },
+                              { key: 'gamma' as const, label: 'γ', max: 20,  color: '#8b5cf6' },
+                            ]).map(({ key, label, max, color }) => (
+                              <div key={key} className="flex-1">
+                                <div className="flex justify-between text-[9px] mb-0.5" style={{ color: 'var(--panel-text-muted)' }}>
+                                  <span>{label}</span>
+                                  <span>{preset.weights[key]}{key === 'gamma' ? '분' : '×'}</span>
+                                </div>
+                                <div className="h-1 rounded-full" style={{ background: 'var(--panel-border)' }}>
+                                  <div
+                                    className="h-1 rounded-full"
+                                    style={{ width: `${Math.min(100, (preset.weights[key] / max) * 100)}%`, background: color }}
+                                  />
+                                </div>
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -559,7 +726,6 @@ export default function Home() {
 
         {/* 카테고리 필터 플로팅 버튼 */}
         <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2">
-          {/* 접기/펼치기 토글 버튼 (항상 맨 왼쪽 고정) */}
           <button
             onClick={() => setCategoryOpen((v) => !v)}
             className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl text-[15px] font-bold shadow-lg transition-all"
@@ -574,7 +740,6 @@ export default function Home() {
             {categoryOpen ? '‹' : '›'}
           </button>
 
-          {/* 카테고리 버튼들 */}
           {categoryOpen && (
             <div className="flex flex-wrap gap-2">
               {([
@@ -618,6 +783,8 @@ export default function Home() {
           selectedCategory={selectedCategory}
           favorites={favorites}
           savedOrigins={savedOrigins}
+          activeLegs={activeLegs}
+          onSaveRoute={handleSaveRoute}
         />
       </div>
     </main>

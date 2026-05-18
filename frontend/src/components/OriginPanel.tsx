@@ -75,7 +75,7 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
 
   return (
     <div
-      className="absolute top-4 right-4 z-[1000]"
+      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]"
       style={{ minWidth: expanded ? '260px' : 'auto' }}
     >
       {/* collapsed: 한 줄 pill */}

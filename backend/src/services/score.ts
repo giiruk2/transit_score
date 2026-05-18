@@ -1,107 +1,118 @@
 import { RouteResult } from './routeService';
 
-export interface ScoreBreakdown {
-  s_time: number;
-  s_transfer: number;
-  s_walk: number;
-  s_wait: number;
-  s_access: number;
+// ── MK3 GTT 채점 모듈 ──────────────────────────────────────────────────────
+// Generalized Travel Time: GTT = T_invehicle + α×T_walk + β×T_wait + γ×N_transfer
+//
+// 참고문헌:
+//   Wardman (2001): γ ≈ 13분 (Urban Leisure 환승 패널티)
+//   Wardman (2004): α = 2.0 (도보 시간은 차내 시간의 2배), β = 2.5 (대기 2.5배)
+//
+// 주의: raptor.ts의 transferPenaltySec = 0 전제.
+//       이중 계산 방지: MK3 γ만이 환승 패널티를 담당.
+
+export interface GttCoefficients {
+  alpha: number;   // 도보 배율 (기본 2.0)
+  beta:  number;   // 대기 배율 (기본 2.5)
+  gamma: number;   // 환승 패널티/회 (기본 13분)
+  tMax?: number;   // 최대 허용 이동시간 (분, 0 = 제한없음, totalTimeMin 기준)
 }
 
-export interface FinalScoreResult {
-  finalScore: number;
-  breakdown: ScoreBreakdown;
-  rawParams: RouteResult;
+export const DEFAULT_COEFFICIENTS: GttCoefficients = {
+  alpha: 2.0,
+  beta:  2.5,
+  gamma: 13,
+  tMax:  0,
+};
+
+export interface GttBreakdown {
+  T_invehicle:        number;  // 순수 탑승시간 (분)
+  T_walk_weighted:    number;  // alpha × T_walk (경사 보정 후)
+  T_wait_weighted:    number;  // beta  × T_wait
+  T_transfer_penalty: number;  // gamma × N_transfer
+  T_walk_raw:         number;  // 도보시간 (분, 토블러 보정 후)
+  T_walk_flat:        number;  // 도보시간 (분, 평지 기준 = OTP2 원본)
+  T_wait_raw:         number;  // 대기시간 (분, 원본)
+  N_transfer:         number;  // 환승 횟수 (원본)
+  // 고도/경사 보정 데이터 (elevation 계산 성공 시에만)
+  elevation_gain?:    number;  // 총 오르막 (m)
+  elevation_loss?:    number;  // 총 내리막 (m)
+  slope_penalty_min?: number;  // 경사 패널티 (분)
+}
+
+export type GttGrade = 'S' | 'A' | 'B' | 'C' | 'D';
+
+export interface GttResult {
+  gtt:            number;     // Generalized Travel Time (분)
+  grade:          GttGrade;   // S/A/B/C/D
+  breakdown:      GttBreakdown;
+  rawParams:      RouteResult;
+  isTMaxExceeded: boolean;    // tMax 초과 여부
+}
+
+function toGrade(gtt: number): GttGrade {
+  if (gtt <= 40)  return 'S';
+  if (gtt <= 80)  return 'A';
+  if (gtt <= 120) return 'B';
+  if (gtt <= 160) return 'C';
+  return 'D';
 }
 
 /**
- * 접근성 점수 정규화 및 가중합 계산 알고리즘
- * 0~100점 사이로 환산 (연구 보고서 수식 참조)
+ * GTT 채점 함수
+ * RAPTOR → RouteResult → calculateGtt() → GttResult
  */
-export interface Weights {
-  time: number;
-  transfer: number;
-  walk: number;
-  wait: number;
-  access: number;
-}
-
-export const DEFAULT_WEIGHTS: Weights = {
-  time: 0.45,
-  transfer: 0.20,
-  walk: 0.15,
-  wait: 0.10,
-  access: 0.10
-};
-
-export const calculateAccessibilityScore = (
+export const calculateGtt = (
   routeData: RouteResult,
-  accessScoreFactor: number = 0.5,
-  weights: Weights = DEFAULT_WEIGHTS
-): FinalScoreResult => {
-  // 1. 이동 시간 점수 (T_best = 20분, T_worst = 120분)
-  let s_time = 1 - (routeData.totalTimeMin - 20) / (120 - 20);
-  if (s_time > 1) s_time = 1;
-  if (s_time < 0) s_time = 0;
+  coefficients: GttCoefficients = DEFAULT_COEFFICIENTS,
+): GttResult => {
+  const { alpha, beta, gamma, tMax = 0 } = coefficients;
 
-  // 2. 환승 점수 (계단형 패널티)
-  let s_transfer = 1.0;
-  if (routeData.transferCount === 1) s_transfer = 0.75;
-  else if (routeData.transferCount === 2) s_transfer = 0.5;
-  else if (routeData.transferCount === 3) s_transfer = 0.25;
-  else if (routeData.transferCount >= 4) s_transfer = 0.1;
+  // 도보 시간:
+  //   1순위: 토블러 보정 시간 (walkTimeSlopeMin) — 경사도 반영
+  //   2순위: OTP2 원래 도보 시간 (walkTimeSec/60)
+  //   3순위: 분 단위 필드, 거리 역산 폴백
+  const T_walk_flat = routeData.walkTimeSec !== undefined
+    ? routeData.walkTimeSec / 60
+    : (routeData.walkTimeMin ?? (routeData.walkDistanceM / 1.2 / 60));
 
-  // 3. 도보 점수 — 관광객 기준 (캐리어·유아차 동반 고려)
-  // T≤10분 → 1.0 / 10<T<20분 → 선형감소 / T≥20분 → 0.0
-  // 거리 폴백: 평지 5km/h 기준 시간 환산 후 동일 공식 적용 (일관성 유지)
-  let s_walk: number;
-  if (routeData.walkTimeMin !== undefined && routeData.walkTimeMin > 0) {
-    const t = routeData.walkTimeMin;
-    if (t <= 10) s_walk = 1.0;
-    else if (t < 20) s_walk = 1.0 - (t - 10) / 10;
-    else s_walk = 0.0;
-  } else {
-    // 평지 5km/h로 시간 환산 → 동일 시간 기준 적용 (833m=10분, 1667m=20분)
-    const estimatedWalkMin = (routeData.walkDistanceM / 1000) / 5 * 60;
-    if (estimatedWalkMin <= 10) s_walk = 1.0;
-    else if (estimatedWalkMin < 20) s_walk = 1.0 - (estimatedWalkMin - 10) / 10;
-    else s_walk = 0.0;
-  }
-  if (s_walk > 1) s_walk = 1;
-  if (s_walk < 0) s_walk = 0;
+  const T_walk = routeData.walkTimeSlopeMin !== undefined
+    ? routeData.walkTimeSlopeMin
+    : T_walk_flat;
 
-  // 4. 대기 점수 — 구간별 패널티 함수
-  // 5분 이하: 만점 / 5~20분: 선형 감소 / 20분 초과: 최저 0.1
-  let s_wait: number;
-  if (routeData.waitTimeMin <= 5) {
-    s_wait = 1.0;
-  } else if (routeData.waitTimeMin <= 20) {
-    s_wait = 1.0 - (routeData.waitTimeMin - 5) / 15;
-  } else {
-    s_wait = 0.1;
-  }
+  const T_wait = routeData.waitTimeSec !== undefined
+    ? routeData.waitTimeSec / 60
+    : routeData.waitTimeMin;
 
-  // 5. 무장애 점수 — 저상버스 탑승 시 1.0, 그 외 accessScoreFactor (DB 기본값 0.5)
-  const s_access = routeData.hasLowFloor ? 1.0 : accessScoreFactor;
+  // 순수 탑승 시간 (totalTimeMin = T_invehicle + T_walk_flat + T_wait, transferPenaltySec=0 전제)
+  // T_walk_flat(OTP2 원본)으로 역산해야 T_invehicle이 올바름
+  const T_invehicle = Math.max(0, routeData.totalTimeMin - T_walk_flat - T_wait);
+  const N_transfer  = routeData.transferCount;
 
-  // 6. 가중합 기반 최종 점수 산출
-  const finalScoreRaw = 100 * (
-    weights.time     * s_time +
-    weights.transfer * s_transfer +
-    weights.walk     * s_walk +
-    weights.wait     * s_wait +
-    weights.access   * s_access
-  );
+  const T_walk_weighted    = alpha * T_walk;
+  const T_wait_weighted    = beta  * T_wait;
+  const T_transfer_penalty = gamma * N_transfer;
+
+  const gtt = T_invehicle + T_walk_weighted + T_wait_weighted + T_transfer_penalty;
+
+  const isTMaxExceeded = tMax > 0 && routeData.totalTimeMin > tMax;
 
   return {
-    finalScore: Number(finalScoreRaw.toFixed(1)),
+    gtt:   Number(gtt.toFixed(1)),
+    grade: toGrade(gtt),
     breakdown: {
-      s_time: Number(s_time.toFixed(4)),
-      s_transfer: Number(s_transfer.toFixed(4)),
-      s_walk: Number(s_walk.toFixed(4)),
-      s_wait: Number(s_wait.toFixed(4)),
-      s_access: Number(s_access.toFixed(4)),
+      T_invehicle:        Number(T_invehicle.toFixed(1)),
+      T_walk_weighted:    Number(T_walk_weighted.toFixed(1)),
+      T_wait_weighted:    Number(T_wait_weighted.toFixed(1)),
+      T_transfer_penalty: Number(T_transfer_penalty.toFixed(1)),
+      T_walk_raw:         Number(T_walk.toFixed(1)),
+      T_walk_flat:        Number(T_walk_flat.toFixed(1)),
+      T_wait_raw:         Number(T_wait.toFixed(1)),
+      N_transfer,
+      ...(routeData.elevationGain    !== undefined && { elevation_gain:    routeData.elevationGain }),
+      ...(routeData.elevationLoss    !== undefined && { elevation_loss:    routeData.elevationLoss }),
+      ...(routeData.slopePenaltyMin  !== undefined && { slope_penalty_min: routeData.slopePenaltyMin }),
     },
-    rawParams: routeData
+    rawParams: routeData,
+    isTMaxExceeded,
   };
 };

@@ -3,27 +3,25 @@
 import { useState, useEffect } from 'react';
 import { getUser } from '@/lib/auth';
 
-export interface Weights {
-  time: number;
-  transfer: number;
-  walk: number;
-  wait: number;
-  access: number;
+export interface GttCoefficients {
+  alpha: number;   // 도보 배율 (기본 2.0)
+  beta:  number;   // 대기 배율 (기본 2.5)
+  gamma: number;   // 환승 패널티/회 (기본 13분)
+  tMax:  number;   // 최대 이동시간 제한 (분, 0=제한없음, totalTimeMin 기준)
 }
 
-export const DEFAULT_WEIGHTS: Weights = {
-  time: 0.45,
-  transfer: 0.20,
-  walk: 0.15,
-  wait: 0.10,
-  access: 0.10,
+export const DEFAULT_COEFFICIENTS: GttCoefficients = {
+  alpha: 2.0,
+  beta:  2.5,
+  gamma: 13,
+  tMax:  0,
 };
 
-const STORAGE_KEY = 'transitScore_weights';
+const STORAGE_KEY = 'transitScore_gtt_coefficients';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 export function useWeights() {
-  const [weights, setWeights] = useState<Weights>(DEFAULT_WEIGHTS);
+  const [coefficients, setCoefficients] = useState<GttCoefficients>(DEFAULT_COEFFICIENTS);
   const [isCustom, setIsCustom] = useState(false);
 
   useEffect(() => {
@@ -34,7 +32,12 @@ export function useWeights() {
           const res = await fetch(`${API_URL}/api/user-weights/${user.id}`);
           const json = await res.json();
           if (json.success && json.data) {
-            setWeights({ time: json.data.time, transfer: json.data.transfer, walk: json.data.walk, wait: json.data.wait, access: json.data.access });
+            setCoefficients({
+              alpha: json.data.alpha,
+              beta:  json.data.beta,
+              gamma: json.data.gamma,
+              tMax:  json.data.tMax ?? 0,
+            });
             setIsCustom(true);
             return;
           }
@@ -44,7 +47,7 @@ export function useWeights() {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          setWeights(parsed.weights);
+          setCoefficients(parsed);
           setIsCustom(true);
         }
       } catch { /* 파싱 실패 시 기본값 유지 */ }
@@ -52,9 +55,9 @@ export function useWeights() {
     load();
   }, []);
 
-  const saveWeights = async (newWeights: Weights, cr: number) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ weights: newWeights, cr, updatedAt: new Date().toISOString() }));
-    setWeights(newWeights);
+  const saveCoefficients = async (newCoefficients: GttCoefficients) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newCoefficients));
+    setCoefficients(newCoefficients);
     setIsCustom(true);
 
     const user = await getUser();
@@ -62,14 +65,14 @@ export function useWeights() {
       fetch(`${API_URL}/api/user-weights`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, ...newWeights, cr }),
+        body: JSON.stringify({ userId: user.id, ...newCoefficients }),
       }).catch(() => {});
     }
   };
 
-  const resetWeights = async () => {
+  const resetCoefficients = async () => {
     localStorage.removeItem(STORAGE_KEY);
-    setWeights(DEFAULT_WEIGHTS);
+    setCoefficients(DEFAULT_COEFFICIENTS);
     setIsCustom(false);
 
     const user = await getUser();
@@ -77,10 +80,10 @@ export function useWeights() {
       fetch(`${API_URL}/api/user-weights`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, ...DEFAULT_WEIGHTS, cr: 0 }),
+        body: JSON.stringify({ userId: user.id, ...DEFAULT_COEFFICIENTS }),
       }).catch(() => {});
     }
   };
 
-  return { weights, isCustom, saveWeights, resetWeights };
+  return { coefficients, isCustom, saveCoefficients, resetCoefficients };
 }

@@ -11,93 +11,65 @@ datasource db {
 
 // ---------------------------------------------------------
 // 1. 관광지 마스터 테이블 (Attraction)
-// 부산 관광명소 OpenAPI, TourAPI 등을 통해 1차적으로 수집된 정보 보관
 // ---------------------------------------------------------
 model Attraction {
   id              String   @id @default(uuid())
-  contentId       String?  @unique // 공공데이터의 고유 ID (예: UC_SEQ 등)
+  contentId       String?  @unique
   name            String
   address         String?
-  lat             Float    // 위도 (WGS84)
-  lng             Float    // 경도 (WGS84)
-  imageUrl        String?  // 대표 이미지
-  description     String?  @db.Text // 개요/설명 (긴 문장 허용)
-  category        String?  // 카테고리 (자연, 바다/해변, 역사/전통, 문화/예술, 박물관, 종교, 공원/레저)
+  lat             Float
+  lng             Float
+  imageUrl        String?
+  description     String?  @db.Text
+  category        String?
   phone           String?
   homepage        String?
-  
-  // 무장애 정보 (TourAPI 보강용) / 0.0 ~ 1.0 (0.5=모름)
   accessScore     Float    @default(0.5)
-
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
-  // 관계 설정 (이 관광지를 대상으로 한 점수 기록들)
   scores          ScoreSnapshot[]
 }
 
 // ---------------------------------------------------------
-// 2. 접근성 점수 스냅샷 테이블 (ScoreSnapshot)
-// 특정 출발지(origin)에서 대상 관광지(Attraction)까지의 계산 결과 보관
+// 2. 접근성 점수 스냅샷 테이블 (ScoreSnapshot) — MK3 확장
 // ---------------------------------------------------------
 model ScoreSnapshot {
   id             String   @id @default(uuid())
-  
-  // 어떤 관광지에 대한 점수인지
   attractionId   String
   attraction     Attraction @relation(fields: [attractionId], references: [id], onDelete: Cascade)
-
-  // 로그인 사용자 ID (비로그인 시 null)
   userId         String?
-
-  // 출발 기준점 정보 (예: "부산역", "해운대", 혹은 커스텀 좌표)
   originName     String
   originLat      Float
   originLng      Float
-
-  // TMAP API 호출 등으로 계산된 원본 데이터 (분 단위)
-  totalTimeMin   Int      // 총 소요시간 (분)
-  transferCount  Int      // 환승 횟수
-  walkDistanceM  Int      // 도보 거리 (미터)
-  waitTimeMin    Int      // 대기/배차 시간 (분)
-
-  // 정규화 후 가중합 계산된 "최종 점수 (0~100)"
-  finalScore     Float
-
-  // 세부 점수 분해요소 (프론트엔드 막대그래프/배지 표시용, JSON 형태로 유연하게 저장)
-  breakdown      Json     // 예: { s_time: 0.82, s_transfer: 0.75, ... }
-
+  totalTimeMin   Int
+  transferCount  Int
+  walkDistanceM  Int
+  waitTimeMin    Int
+  finalScore     Float?   // 하위 호환 (MK2) — MK3에서는 gtt 값 저장
+  gtt            Float?   // MK3 GTT 값 (분)
+  grade          String?  // 'S'|'A'|'B'|'C'|'D'
+  alpha          Float?   // 계산 당시 사용된 계수
+  beta           Float?
+  gamma          Float?
+  breakdown      Json
   createdAt      DateTime @default(now())
-
-  // 단일 출발지-목적지에 대한 최근 점수 1건만 유지하기 위한 복합 키(옵션)
-  // @@unique([attractionId, originName])
 }
 
 // ---------------------------------------------------------
-// 3. 동별 관광지 점수 캐시 테이블 (DongScore)
-// 개발 중 클릭으로 누적되는 사전계산 결과 저장
-// 새 관광지 추가 시 해당 관광지 행만 누락 → 다음 조회 시 자동 보완
+// 3. 동별 관광지 점수 캐시 테이블 (DongScore) — MK3 재설계
+// 원시 시간 컴포넌트 저장 → 조회 시 프론트에서 GTT 계산
 // ---------------------------------------------------------
 model DongScore {
   id           String   @id @default(uuid())
-
-  // 행정동 키 (예: "해운대구 중동")
   dongKey      String
-
-  // 어떤 관광지의 점수인지
   attractionId String
-
-  // 정규화된 서브스코어 (가중치와 독립적으로 저장 → 조회 시점 가중치로 finalScore 계산)
-  sTime        Float    // 이동시간 서브스코어 (0~1)
-  sTransfer    Float    // 환승 서브스코어 (0~1)
-  sWalk        Float    // 도보 서브스코어 (0~1)
-  sWait        Float    // 대기 서브스코어 (0~1)
-  sAccess      Float    // 무장애 서브스코어 (0~1)
-
-  // 계산에 사용된 동 중심 좌표
+  tInvehicle   Float              // 순수 탑승시간 (분)
+  tWalk        Float              // 도보시간 (분)
+  tWait        Float              // 대기시간 (분)
+  nTransfer    Int                // 환승 횟수
+  hasLowFloor  Boolean  @default(false)
   dongLat      Float
   dongLng      Float
-
   computedAt   DateTime @default(now())
 
   @@unique([dongKey, attractionId])
@@ -105,7 +77,40 @@ model DongScore {
 }
 
 // ---------------------------------------------------------
-// 6. 즐겨찾기 관광지 테이블 (FavoriteAttraction)
+// 4. AHP 설문 응답 테이블 (WeightResponse) — 역사 데이터 보존
+// ---------------------------------------------------------
+model WeightResponse {
+  id        String   @id @default(uuid())
+  a12       Float
+  a13       Float
+  a14       Float
+  a15       Float
+  a23       Float
+  a24       Float
+  a25       Float
+  a34       Float
+  a35       Float
+  a45       Float
+  cr        Float
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------
+// 5. 사용자별 GTT 계수 저장 테이블 (UserWeight) — MK3 재설계
+// ---------------------------------------------------------
+model UserWeight {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  alpha     Float    @default(2.0)   // 도보 배율
+  beta      Float    @default(2.5)   // 대기 배율
+  gamma     Float    @default(13.0)  // 환승 패널티 (분)
+  tMax      Int      @default(0)     // 최대 이동시간 제한 (0=없음)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------
+// 6. 즐겨찾기 관광지 테이블
 // ---------------------------------------------------------
 model FavoriteAttraction {
   id           String   @id @default(uuid())
@@ -118,8 +123,26 @@ model FavoriteAttraction {
 }
 
 // ---------------------------------------------------------
-// 7. 저장된 출발지 테이블 (SavedOrigin)
+// 7. 저장된 출발지 테이블
 // ---------------------------------------------------------
+model SavedRoute {
+  id               String   @id @default(uuid())
+  userId           String
+  name             String
+  originName       String
+  originLat        Float
+  originLng        Float
+  attractionId     String
+  attractionName   String
+  attractionLat    Float
+  attractionLng    Float
+  legs             Json
+  totalTimeMin     Int
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+}
+
 model SavedOrigin {
   id        String   @id @default(uuid())
   userId    String
@@ -130,46 +153,4 @@ model SavedOrigin {
   createdAt DateTime @default(now())
 
   @@index([userId])
-}
-
-// ---------------------------------------------------------
-// 5. 사용자별 AHP 가중치 저장 테이블 (UserWeight)
-// 구글 로그인 사용자의 개인 가중치 (1인 1행)
-// ---------------------------------------------------------
-model UserWeight {
-  id        String   @id @default(uuid())
-  userId    String   @unique  // Supabase Auth UUID
-  time      Float
-  transfer  Float
-  walk      Float
-  wait      Float
-  access    Float
-  cr        Float
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
-}
-
-// ---------------------------------------------------------
-// 4. AHP 설문 응답 테이블 (WeightResponse)
-// 사용자가 입력한 쌍대비교 원본 응답값 수집
-// 향후 기하평균 집계로 기본 가중치 개선에 활용
-// ---------------------------------------------------------
-model WeightResponse {
-  id        String   @id @default(uuid())
-
-  // 10쌍 쌍대비교 응답값 (양수: 왼쪽이 더 중요, 역수: 오른쪽이 더 중요)
-  a12       Float    // 이동시간 vs 환승
-  a13       Float    // 이동시간 vs 도보
-  a14       Float    // 이동시간 vs 대기
-  a15       Float    // 이동시간 vs 접근성
-  a23       Float    // 환승 vs 도보
-  a24       Float    // 환승 vs 대기
-  a25       Float    // 환승 vs 접근성
-  a34       Float    // 도보 vs 대기
-  a35       Float    // 도보 vs 접근성
-  a45       Float    // 대기 vs 접근성
-
-  cr        Float    // 일관성 지수 (CR < 0.1인 응답만 저장)
-
-  createdAt DateTime @default(now())
 }

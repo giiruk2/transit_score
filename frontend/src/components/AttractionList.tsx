@@ -35,7 +35,32 @@ function nameFontSize(name: string): string {
   return 'var(--font-xs)';
 }
 
-function ListBadge({ distanceKm }: { distanceKm: number | undefined }) {
+const GRADE_STYLE: Record<string, { bg: string; text: string }> = {
+  S: { bg: 'rgba(59,130,246,0.2)',  text: '#60a5fa' },
+  A: { bg: 'rgba(34,197,94,0.2)',   text: '#4ade80' },
+  B: { bg: 'rgba(234,179,8,0.2)',   text: '#facc15' },
+  C: { bg: 'rgba(249,115,22,0.2)',  text: '#fb923c' },
+  D: { bg: 'rgba(239,68,68,0.2)',   text: '#f87171' },
+};
+
+function toGrade(gtt: number): string {
+  if (gtt <= 40)  return 'S';
+  if (gtt <= 80)  return 'A';
+  if (gtt <= 120) return 'B';
+  if (gtt <= 160) return 'C';
+  return 'D';
+}
+
+function ListBadge({ score, distanceKm }: { score: number | undefined; distanceKm: number | undefined }) {
+  if (score !== undefined) {
+    const grade = toGrade(score);
+    const s = GRADE_STYLE[grade];
+    return (
+      <span style={{ fontSize: 'var(--font-2xs)', fontWeight: 700, padding: '1px 6px', borderRadius: '6px', background: s.bg, color: s.text }}>
+        {grade}
+      </span>
+    );
+  }
   if (distanceKm !== undefined) {
     return (
       <span style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
@@ -75,7 +100,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
   const sorted = [...attractions].sort((a, b) => {
     const sa = scores[a.id];
     const sb = scores[b.id];
-    if (sa !== undefined && sb !== undefined) return sb - sa;
+    if (sa !== undefined && sb !== undefined) return sa - sb;  // GTT: 낮을수록 좋음
     if (sa !== undefined) return -1;
     if (sb !== undefined) return 1;
     const da = distances[a.id] ?? Infinity;
@@ -107,8 +132,8 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
           <button
             onClick={() => setFavOnly((v) => !v)}
             className="flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all mt-1.5"
-            style={{ fontSize: 'var(--font-xs)' }}
             style={{
+              fontSize: 'var(--font-xs)',
               background: favOnly ? 'rgba(244,63,94,0.15)' : 'transparent',
               color: favOnly ? '#f43f5e' : 'var(--panel-text-muted)',
               border: `1px solid ${favOnly ? 'rgba(244,63,94,0.3)' : 'transparent'}`,
@@ -208,7 +233,7 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                           {attraction.category}
                         </span>
                       )}
-                      <ListBadge distanceKm={distances[attraction.id]} />
+                      <ListBadge score={scores[attraction.id]} distanceKm={distances[attraction.id]} />
                     </div>
                   </div>
                 </div>
@@ -270,17 +295,23 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                     >
                       {attraction.name}
                     </h3>
-                    {distKm !== undefined && (
-                      <div className="flex items-center gap-1.5" style={{ color: 'var(--panel-text-muted)' }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                          <circle cx="12" cy="5" r="2"/>
-                          <path d="M12 7v5l-3 3M12 12l3 3M9 21l1.5-4M15 21l-1.5-4"/>
-                        </svg>
-                        <span style={{ fontSize: 'var(--font-2xs)' }}>
-                          {distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(2)}km`}
+                    <div className="flex items-center gap-1.5">
+                      {scores[attraction.id] !== undefined ? (
+                        (() => {
+                          const grade = toGrade(scores[attraction.id]);
+                          const s = GRADE_STYLE[grade];
+                          return (
+                            <span style={{ fontSize: 'var(--font-2xs)', fontWeight: 700, padding: '1px 7px', borderRadius: '6px', background: s.bg, color: s.text }}>
+                              {grade}
+                            </span>
+                          );
+                        })()
+                      ) : distKm !== undefined ? (
+                        <span style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
+                          약 {distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(2)}km`}
                         </span>
-                      </div>
-                    )}
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               );

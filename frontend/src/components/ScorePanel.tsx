@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import type { Attraction } from '@/app/page';
-import { Weights, DEFAULT_WEIGHTS } from '@/hooks/useWeights';
+import { GttCoefficients, DEFAULT_COEFFICIENTS } from '@/hooks/useWeights';
 import { getUser } from '@/lib/auth';
 
 const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
@@ -16,24 +16,63 @@ const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
   '공원/레저':{ bg: 'rgba(20,184,166,0.15)', text: '#115e59' },
 };
 
+interface ElevationPoint {
+  lat: number;
+  lng: number;
+  elevation: number;
+}
+
+interface RouteLeg {
+  mode: 'walk' | 'bus' | 'subway';
+  routeShortName?: string;
+  boardStopName?: string;
+  alightStopName?: string;
+  coords: { lat: number; lng: number }[];
+  durationSec: number;
+  elevationProfile?: ElevationPoint[];
+  slopeSegments?: number[];
+}
+
+interface RouteOption {
+  totalTimeMin: number;
+  transferCount: number;
+  walkDistanceM: number;
+  walkTimeSec: number;
+  waitTimeSec: number;
+  isSubwayOnly: boolean;
+  legs: RouteLeg[];
+}
+
 interface ScorePanelProps {
   attraction: Attraction;
   origin: { name: string; lat: number; lng: number };
   onClose: () => void;
-  weights?: Weights;
+  coefficients?: GttCoefficients;
   dongKey?: string;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
   isLoggedIn: boolean;
+  onLegsChange?: (legs: RouteLeg[]) => void;
 }
 
+type GttGrade = 'S' | 'A' | 'B' | 'C' | 'D';
+
 interface ScoreDetails {
-  finalScore: number;
+  gtt: number;
+  grade: GttGrade;
+  isTMaxExceeded: boolean;
   breakdown: {
-    s_time: number;
-    s_transfer: number;
-    s_walk: number;
-    s_wait: number;
+    T_invehicle: number;
+    T_walk_weighted: number;
+    T_wait_weighted: number;
+    T_transfer_penalty: number;
+    T_walk_raw: number;
+    T_walk_flat: number;
+    T_wait_raw: number;
+    N_transfer: number;
+    elevation_gain?: number;
+    elevation_loss?: number;
+    slope_penalty_min?: number;
   };
   rawParams: {
     totalTimeMin: number;
@@ -44,92 +83,108 @@ interface ScoreDetails {
     hasLowFloor: boolean;
     isFallback?: boolean;
     fallbackReason?: 'tooClose' | 'apiError';
+    legs?: RouteLeg[];
+    routes?: RouteOption[];
+    elevationGain?: number;
+    elevationLoss?: number;
+    slopePenaltyMin?: number;
+    walkTimeSlopeMin?: number;
+    walkTimeFlatMin?: number;
   };
 }
 
-interface WarningBadge {
-  icon: string;
-  label: string;
-  type: 'warn' | 'info' | 'good';
-  tooltip: string;
-}
+// ── 고도 프로파일 미니 차트 ───────────────────────────────────────────────────
+function ElevationChart({ legs }: { legs?: RouteLeg[] }) {
+  if (!legs) return null;
 
-function getWarningBadges(raw: ScoreDetails['rawParams']): WarningBadge[] {
-  const badges: WarningBadge[] = [];
-
-  // 이동 시간
-  if (raw.totalTimeMin > 60) {
-    badges.push({ icon: '🕐', label: '이동 시간 김', type: 'warn', tooltip: `편도 ${raw.totalTimeMin}분 소요` });
-  }
-
-  // 환승
-  if (raw.transferCount >= 2) {
-    badges.push({ icon: '🔄', label: `환승 ${raw.transferCount}회`, type: 'warn', tooltip: '환승이 많아 이동이 복잡할 수 있습니다' });
-  } else if (raw.transferCount === 1) {
-    badges.push({ icon: '🔄', label: '환승 1회', type: 'info', tooltip: '1회 환승이 필요합니다' });
-  }
-
-  // 도보
-  if (raw.walkTimeMin !== undefined && raw.walkDistanceM > 0) {
-    // 토블러 기반 실질 도보시간이 평지 기준보다 20% 이상 길면 경사 경고
-    const flatTimeMin = (raw.walkDistanceM / 1000 / 5.04) * 60;
-    if (raw.walkTimeMin > flatTimeMin * 1.2) {
-      badges.push({ icon: '⛰️', label: '경사 구간 포함', type: 'warn', tooltip: `경사로로 실제 도보 ${Math.round(raw.walkTimeMin)}분 소요 (평지 대비 +${Math.round((raw.walkTimeMin / flatTimeMin - 1) * 100)}%)` });
+  // 도보 leg 중 elevationProfile이 있는 것만 합산
+  const allPoints: ElevationPoint[] = [];
+  for (const leg of legs) {
+    if (leg.mode === 'walk' && leg.elevationProfile && leg.elevationProfile.length > 0) {
+      allPoints.push(...leg.elevationProfile);
     }
   }
-  if (raw.walkDistanceM > 600) {
-    badges.push({ icon: '🚶', label: '도보 많음', type: 'warn', tooltip: `총 도보 ${raw.walkDistanceM}m` });
-  }
+  if (allPoints.length < 2) return null;
 
-  // 대기
-  if (raw.waitTimeMin > 10) {
-    badges.push({ icon: '⏳', label: '대기 시간 김', type: 'warn', tooltip: `약 ${raw.waitTimeMin}분 대기 예상` });
-  }
+  const elevs = allPoints.map((p) => p.elevation);
+  const minE = Math.min(...elevs);
+  const maxE = Math.max(...elevs);
+  const range = Math.max(maxE - minE, 5); // 최소 5m 범위
 
-  // 저상버스
-  if (raw.hasLowFloor) {
-    badges.push({ icon: '♿', label: '저상버스 탑승 가능', type: 'good', tooltip: '휠체어·유모차 탑승이 가능한 저상버스가 운행 중입니다' });
-  }
+  const W = 240;
+  const H = 48;
+  const pad = 4;
 
-  return badges;
-}
+  const points = allPoints.map((p, i) => {
+    const x = pad + ((i / (allPoints.length - 1)) * (W - pad * 2));
+    const y = H - pad - (((p.elevation - minE) / range) * (H - pad * 2));
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
 
-function getScoreGrade(score: number) {
-  if (score >= 80) return { label: '매우 우수', emoji: '🟢', color: 'var(--score-excellent)' };
-  if (score >= 60) return { label: '우수', emoji: '🟡', color: 'var(--score-good)' };
-  if (score >= 40) return { label: '보통', emoji: '🟠', color: 'var(--score-average)' };
-  return { label: '미흡', emoji: '🔴', color: 'var(--score-poor)' };
-}
-
-function ScoreBar({ label, value, maxValue, unit, color, score }: { label: string; value: number; maxValue: number; unit: string; color: string; score?: number }) {
-  const percentage = Math.min(100, Math.max(0, (value / maxValue) * 100));
   return (
-    <div className="mb-3" title={score !== undefined ? `점수: ${score.toFixed(2)}` : undefined}>
-      <div className="flex justify-between items-center mb-1">
-        <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>{label}</span>
-        <span className="font-semibold" style={{ fontSize: 'var(--font-sm)', color: 'var(--panel-text)' }}>
-          {value}{unit}
-          {score !== undefined && (
-            <span className="ml-1 font-normal" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
-              ({(score * 100).toFixed(0)}점)
-            </span>
-          )}
-        </span>
-      </div>
-      <div className="w-full h-2 rounded-full" style={{ background: 'var(--panel-surface)' }}>
-        <div
-          className="h-2 rounded-full animate-bar"
-          style={{ width: `${percentage}%`, background: color }}
+    <div className="mt-3">
+      <p className="mb-1" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
+        📈 도보 구간 고도 프로파일
+      </p>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
+        <defs>
+          <linearGradient id="elevGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+          </linearGradient>
+        </defs>
+        {/* 채움 영역 */}
+        <polygon
+          points={`${pad},${H - pad} ${points} ${W - pad},${H - pad}`}
+          fill="url(#elevGrad)"
         />
+        {/* 선 */}
+        <polyline
+          points={points}
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+        {/* 최고점 표시 */}
+        {maxE - minE >= 5 && (() => {
+          const maxIdx = elevs.indexOf(maxE);
+          const x = pad + ((maxIdx / (allPoints.length - 1)) * (W - pad * 2));
+          const y = H - pad - (((maxE - minE) / range) * (H - pad * 2));
+          return (
+            <g>
+              <circle cx={x} cy={y} r={3} fill="#ef4444" />
+              <text x={x + 4} y={y - 2} fontSize={8} fill="#ef4444">{maxE}m</text>
+            </g>
+          );
+        })()}
+      </svg>
+      <div className="flex justify-between mt-0.5" style={{ fontSize: '9px', color: 'var(--panel-text-muted)' }}>
+        <span>출발</span>
+        <span>도착</span>
       </div>
     </div>
   );
 }
 
-export default function ScorePanel({ attraction, origin, onClose, weights = DEFAULT_WEIGHTS, dongKey, favorites, onToggleFavorite, isLoggedIn }: ScorePanelProps) {
+function getGradeStyle(grade: GttGrade): { color: string; label: string; desc: string } {
+  switch (grade) {
+    case 'S': return { color: '#22c55e', label: 'S등급', desc: '대중교통 최적 경로입니다' };
+    case 'A': return { color: '#84cc16', label: 'A등급', desc: '충분히 쾌적하게 이동 가능합니다' };
+    case 'B': return { color: '#f59e0b', label: 'B등급', desc: '무난하게 이동 가능합니다' };
+    case 'C': return { color: '#f97316', label: 'C등급', desc: '다소 불편할 수 있습니다' };
+    case 'D': return { color: '#ef4444', label: 'D등급', desc: '차량 이용을 권장합니다' };
+  }
+}
+
+export default function ScorePanel({
+  attraction, origin, onClose, coefficients = DEFAULT_COEFFICIENTS, dongKey,
+  favorites, onToggleFavorite, isLoggedIn, onLegsChange,
+}: ScorePanelProps) {
   const [scoreData, setScoreData] = useState<ScoreDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
 
   useEffect(() => {
     const fetchScore = async () => {
@@ -146,18 +201,21 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
             originLng: origin.lng,
             destLat: attraction.lat,
             destLng: attraction.lng,
-            w_time: weights.time,
-            w_transfer: weights.transfer,
-            w_walk: weights.walk,
-            w_wait: weights.wait,
-            w_access: weights.access,
+            alpha: coefficients.alpha,
+            beta:  coefficients.beta,
+            gamma: coefficients.gamma,
+            tMax:  coefficients.tMax,
             ...(dongKey ? { dongKey } : {}),
             ...(user ? { userId: user.id, originName: origin.name } : {}),
           },
         });
 
         if (response.data.success) {
-          setScoreData(response.data.data.scoreDetails);
+          const details = response.data.data.scoreDetails;
+          setScoreData(details);
+          setSelectedRouteIdx(0);
+          const legs = details?.rawParams?.routes?.[0]?.legs ?? details?.rawParams?.legs;
+          if (legs && onLegsChange) onLegsChange(legs);
         } else {
           setError(true);
         }
@@ -169,13 +227,9 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
     };
 
     fetchScore();
-  }, [attraction.id, origin.lat, origin.lng, attraction.lat, attraction.lng, weights]);
+  }, [attraction.id, origin.lat, origin.lng, attraction.lat, attraction.lng, coefficients]);
 
-  const grade = scoreData ? getScoreGrade(scoreData.finalScore) : null;
-
-  // 원형 게이지 값
-  const circumference = 2 * Math.PI * 40;
-  const dashoffset = scoreData ? circumference - (scoreData.finalScore / 100) * circumference : circumference;
+  const gradeStyle = scoreData ? getGradeStyle(scoreData.grade) : null;
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar">
@@ -184,8 +238,7 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
         <button
           onClick={onClose}
           className="flex items-center gap-1.5 mb-3 transition-colors"
-          style={{ fontSize: 'var(--font-sm)' }}
-          style={{ color: 'var(--accent)' }}
+          style={{ fontSize: 'var(--font-sm)', color: 'var(--accent)' }}
         >
           ← 목록으로
         </button>
@@ -266,90 +319,215 @@ export default function ScorePanel({ attraction, origin, onClose, weights = DEFA
                   className="text-[10px] px-3 py-2 rounded-lg mb-3"
                   style={{ background: 'rgba(249, 115, 22, 0.1)', color: 'var(--score-average)', border: '1px solid rgba(249, 115, 22, 0.2)' }}
                 >
-                  ⚠️ API 한도 초과로 <b>직선 경로 기반 추정치</b>입니다.
+                  ⚠️ 경로 탐색 실패로 <b>직선 경로 기반 추정치</b>입니다.
                 </div>
               )}
 
-              {/* 원형 게이지 + 등급 */}
-              <div className="flex items-center gap-5 mb-5">
-                <div className="relative shrink-0" style={{ width: 'var(--score-gauge)', height: 'var(--score-gauge)' }}>
-                  <svg className="-rotate-90" style={{ width: 'var(--score-gauge)', height: 'var(--score-gauge)' }} viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--panel-border)" strokeWidth="6" />
-                    <circle
-                      cx="50" cy="50" r="40" fill="none"
-                      stroke={grade?.color}
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={dashoffset}
-                      style={{ transition: 'stroke-dashoffset 1s ease-out' }}
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl font-bold" style={{ color: grade?.color }}>
-                      {scoreData.finalScore}
-                    </span>
-                    <span style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>/ 100</span>
-                  </div>
+              {/* tMax 초과 경고 */}
+              {scoreData.isTMaxExceeded && (
+                <div
+                  className="text-[10px] px-3 py-2 rounded-lg mb-3"
+                  style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                >
+                  ⏱ 설정한 최대 이동시간({coefficients.tMax}분)을 초과합니다. ({scoreData.rawParams.totalTimeMin}분 소요)
                 </div>
+              )}
 
+              {/* 등급 카드 */}
+              <div
+                className="rounded-xl p-4 mb-4 flex items-center gap-4"
+                style={{ background: `${gradeStyle?.color}18`, border: `1px solid ${gradeStyle?.color}40` }}
+              >
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 font-black text-3xl"
+                  style={{ background: gradeStyle?.color, color: '#fff' }}
+                >
+                  {scoreData.grade}
+                </div>
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">{grade?.emoji}</span>
-                    <span className="text-base font-bold" style={{ color: grade?.color }}>{grade?.label}</span>
-                  </div>
-                  <p className="leading-relaxed" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>
-                    {scoreData.finalScore >= 80 && '대중교통으로 편리하게 방문할 수 있습니다.'}
-                    {scoreData.finalScore >= 60 && scoreData.finalScore < 80 && '대중교통 이용이 권장됩니다.'}
-                    {scoreData.finalScore >= 40 && scoreData.finalScore < 60 && '환승이 다소 불편할 수 있습니다.'}
-                    {scoreData.finalScore < 40 && '택시나 자차 이용을 권장합니다.'}
+                  <p className="font-bold text-base mb-0.5" style={{ color: gradeStyle?.color }}>{gradeStyle?.label}</p>
+                  <p style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>{gradeStyle?.desc}</p>
+                  <p className="mt-1 font-semibold" style={{ fontSize: 'var(--font-sm)', color: 'var(--panel-text)' }}>
+                    GTT {scoreData.gtt}분
+                    <span className="ml-1 font-normal" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>
+                      (환산 이동시간)
+                    </span>
                   </p>
                 </div>
               </div>
 
-              {/* 경고 배지 */}
-              {(() => {
-                const badges = getWarningBadges(scoreData.rawParams);
-                if (badges.length === 0) return null;
-                return (
-                  <div className="flex flex-wrap gap-1.5 mb-4">
-                    {badges.map((badge, i) => (
-                      <span
-                        key={i}
-                        title={badge.tooltip}
-                        className="px-2 py-1 rounded-full cursor-default select-none"
-                        style={{
-                          fontSize: 'var(--font-2xs)',
-                          background: badge.type === 'good'
-                            ? 'rgba(34,197,94,0.12)'
-                            : badge.type === 'warn'
-                            ? 'rgba(249,115,22,0.12)'
-                            : 'rgba(73,180,222,0.12)',
-                          color: badge.type === 'good'
-                            ? '#22c55e'
-                            : badge.type === 'warn'
-                            ? 'var(--score-average)'
-                            : '#0369a1',
-                          border: `1px solid ${badge.type === 'good' ? 'rgba(34,197,94,0.25)' : badge.type === 'warn' ? 'rgba(249,115,22,0.25)' : 'rgba(73,180,222,0.25)'}`,
-                        }}
-                      >
-                        {badge.icon} {badge.label}
-                      </span>
-                    ))}
-                  </div>
-                );
-              })()}
+              {/* 배지 */}
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {scoreData.rawParams.hasLowFloor && (
+                  <span
+                    className="px-2 py-1 rounded-full"
+                    style={{ fontSize: 'var(--font-2xs)', background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }}
+                  >
+                    ♿ 저상버스 탑승 가능
+                  </span>
+                )}
+                {scoreData.rawParams.transferCount >= 2 && (
+                  <span
+                    className="px-2 py-1 rounded-full"
+                    style={{ fontSize: 'var(--font-2xs)', background: 'rgba(249,115,22,0.12)', color: 'var(--score-average)', border: '1px solid rgba(249,115,22,0.25)' }}
+                  >
+                    🔄 환승 {scoreData.rawParams.transferCount}회
+                  </span>
+                )}
+                {scoreData.rawParams.totalTimeMin > 60 && (
+                  <span
+                    className="px-2 py-1 rounded-full"
+                    style={{ fontSize: 'var(--font-2xs)', background: 'rgba(249,115,22,0.12)', color: 'var(--score-average)', border: '1px solid rgba(249,115,22,0.25)' }}
+                  >
+                    🕐 {scoreData.rawParams.totalTimeMin}분 소요
+                  </span>
+                )}
+                {/* 고도 배지 */}
+                {(scoreData.rawParams.elevationGain ?? 0) >= 5 && (
+                  <span
+                    className="px-2 py-1 rounded-full"
+                    style={{ fontSize: 'var(--font-2xs)', background: 'rgba(239,68,68,0.1)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.25)' }}
+                  >
+                    ↑ {scoreData.rawParams.elevationGain}m 오르막
+                  </span>
+                )}
+                {(scoreData.rawParams.elevationLoss ?? 0) >= 5 && (
+                  <span
+                    className="px-2 py-1 rounded-full"
+                    style={{ fontSize: 'var(--font-2xs)', background: 'rgba(59,130,246,0.1)', color: '#2563eb', border: '1px solid rgba(59,130,246,0.25)' }}
+                  >
+                    ↓ {scoreData.rawParams.elevationLoss}m 내리막
+                  </span>
+                )}
+                {(scoreData.rawParams.slopePenaltyMin ?? 0) >= 0.5 && (
+                  <span
+                    className="px-2 py-1 rounded-full"
+                    style={{ fontSize: 'var(--font-2xs)', background: 'rgba(234,179,8,0.12)', color: '#b45309', border: '1px solid rgba(234,179,8,0.3)' }}
+                  >
+                    ⛰ 경사 +{scoreData.rawParams.slopePenaltyMin}분
+                  </span>
+                )}
+              </div>
 
-              {/* 세부 점수 막대그래프 */}
+              {/* GTT 분해 상세 */}
               <div>
                 <p className="font-semibold mb-3" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>
-                  세부 분석
+                  GTT 상세 분해
                 </p>
-                <ScoreBar label="🕐 이동 시간" value={scoreData.rawParams.totalTimeMin} maxValue={120} unit="분" color="var(--accent)" score={scoreData.breakdown.s_time} />
-                <ScoreBar label="🔄 환승 횟수" value={scoreData.rawParams.transferCount} maxValue={4} unit="회" color="#8b5cf6" score={scoreData.breakdown.s_transfer} />
-                <ScoreBar label="🚶 도보 거리" value={scoreData.rawParams.walkDistanceM} maxValue={1200} unit="m" color="#06b6d4" score={scoreData.breakdown.s_walk} />
-                <ScoreBar label="⏳ 대기 시간" value={scoreData.rawParams.waitTimeMin} maxValue={20} unit="분" color="#f59e0b" score={scoreData.breakdown.s_wait} />
+                <div className="flex flex-col gap-2">
+                  {/* 탑승 시간 */}
+                  <div className="flex items-center justify-between">
+                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>🚌 탑승 시간</span>
+                    <span className="font-semibold" style={{ fontSize: 'var(--font-sm)', color: 'var(--accent)' }}>
+                      {scoreData.breakdown.T_invehicle}분
+                    </span>
+                  </div>
+                  {/* 도보 시간 (경사 보정 표시) */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>🚶 도보 시간</span>
+                      {scoreData.breakdown.slope_penalty_min !== undefined && scoreData.breakdown.slope_penalty_min >= 0.5 ? (
+                        <span className="ml-2" style={{ fontSize: 'var(--font-2xs)', color: '#b45309' }}>
+                          {scoreData.breakdown.T_walk_flat}분→{scoreData.breakdown.T_walk_raw}분 (경사 +{scoreData.breakdown.slope_penalty_min}분) × α{coefficients.alpha}
+                        </span>
+                      ) : (
+                        <span className="ml-2" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
+                          {scoreData.breakdown.T_walk_raw}분 × α{coefficients.alpha}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-semibold" style={{ fontSize: 'var(--font-sm)', color: '#22c55e' }}>
+                      {scoreData.breakdown.T_walk_weighted}분
+                    </span>
+                  </div>
+                  {/* 대기 시간 */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>⏳ 대기 시간</span>
+                      <span className="ml-2" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
+                        {scoreData.breakdown.T_wait_raw}분 × β{coefficients.beta}
+                      </span>
+                    </div>
+                    <span className="font-semibold" style={{ fontSize: 'var(--font-sm)', color: '#f59e0b' }}>
+                      {scoreData.breakdown.T_wait_weighted}분
+                    </span>
+                  </div>
+                  {/* 환승 패널티 */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>🔄 환승 패널티</span>
+                      <span className="ml-2" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
+                        {scoreData.breakdown.N_transfer}회 × γ{coefficients.gamma}분
+                      </span>
+                    </div>
+                    <span className="font-semibold" style={{ fontSize: 'var(--font-sm)', color: '#8b5cf6' }}>
+                      {scoreData.breakdown.T_transfer_penalty}분
+                    </span>
+                  </div>
+                  <div
+                    className="flex items-center justify-between pt-2 mt-1"
+                    style={{ borderTop: '1px solid var(--panel-border)' }}
+                  >
+                    <span className="font-bold" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>GTT 합계</span>
+                    <span className="font-bold" style={{ fontSize: 'var(--font-sm)', color: gradeStyle?.color }}>{scoreData.gtt}분</span>
+                  </div>
+                </div>
+
+                {/* 고도 프로파일 차트 */}
+                <ElevationChart legs={scoreData.rawParams.legs} />
               </div>
+
+              {/* 경로 옵션 */}
+              {scoreData.rawParams.routes && scoreData.rawParams.routes.length > 1 && (
+                <div className="mt-4">
+                  <p className="font-semibold mb-2" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>
+                    경로 옵션
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {scoreData.rawParams.routes.map((route, idx) => {
+                      const isSelected = idx === selectedRouteIdx;
+                      const modeLabel = route.isSubwayOnly ? '지하철만' : route.transferCount === 0 ? '직행' : `환승 ${route.transferCount}회`;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setSelectedRouteIdx(idx);
+                            if (onLegsChange) onLegsChange(route.legs);
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-lg transition-all"
+                          style={{
+                            background: isSelected ? 'rgba(73,180,222,0.15)' : 'var(--panel-surface)',
+                            border: `1px solid ${isSelected ? 'rgba(73,180,222,0.5)' : 'var(--panel-border)'}`,
+                            color: 'var(--panel-text)',
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: isSelected ? 'var(--accent)' : 'var(--panel-text)' }}>
+                                {modeLabel}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {route.legs.map((leg, li) => (
+                                  <span key={li} style={{ fontSize: '10px' }}>
+                                    {leg.mode === 'walk' ? '🚶' : leg.mode === 'subway' ? '🚇' : `🚌${leg.routeShortName ?? ''}`}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            <span className="font-bold" style={{ fontSize: 'var(--font-sm)', color: isSelected ? 'var(--accent)' : 'var(--panel-text)' }}>
+                              {route.totalTimeMin}분
+                            </span>
+                          </div>
+                          <div className="flex gap-3 mt-1" style={{ fontSize: '10px', color: 'var(--panel-text-muted)' }}>
+                            <span>도보 {route.walkDistanceM}m</span>
+                            <span>대기 {Math.round(route.waitTimeSec / 60)}분</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
