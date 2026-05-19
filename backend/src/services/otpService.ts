@@ -108,8 +108,9 @@ async function fetchRoadGeometry(
         time: CANONICAL_TIME,
         mode: 'WALK',
         numItineraries: 1,
+        maxWalkDistance: 100000,
       },
-      timeout: 5000,
+      timeout: 10000,
     });
     const leg = res.data?.plan?.itineraries?.[0]?.legs?.[0];
     if (!leg?.legGeometry?.points) return null;
@@ -204,6 +205,7 @@ export const fetchOtpRoute = async (
     time:      CANONICAL_TIME,
     maxWalkDistance: MAX_WALK_DISTANCE_M,
     walkSpeed: WALK_SPEED_MPS,
+    maxTransfers: 3,
     locale:    'ko',
   };
 

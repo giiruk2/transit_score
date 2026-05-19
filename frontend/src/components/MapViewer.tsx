@@ -48,7 +48,7 @@ interface MapViewerProps {
   onSaveRoute?: () => void;  // 폴리라인 우클릭 → 경로 저장 요청
 }
 
-type SubwayLineData = { segments: { lat: number; lng: number }[][]; colour: string };
+type SubwayLineData = { segments: { lat: number; lng: number }[][]; allCoords: { lat: number; lng: number }[]; colour: string };
 
 export default function MapViewer({
   selectedAttraction, onMarkerClick, onAttractionsLoaded,
@@ -65,12 +65,13 @@ export default function MapViewer({
   const prevSelectedIdRef = useRef<string | null>(null);
   const polylinesRef = useRef<any[]>([]);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const isOverPolylineRef = useRef(false);
   const [subwayLines, setSubwayLines] = useState<Map<string, SubwayLineData> | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   // 끝-끝이 붙어 있는 세그먼트들을 이어 붙여 긴 경로로 합치기
   function mergeSegments(segs: { lat: number; lng: number }[][]): { lat: number; lng: number }[][] {
-    const THRESHOLD = 0.002; // ~200m 이내면 연결로 판단
+    const THRESHOLD = 0.006; // ~600m 이내면 연결로 판단
     const pool = segs.map((s) => [...s]);
     const result: { lat: number; lng: number }[][] = [];
     while (pool.length > 0) {
@@ -114,7 +115,7 @@ export default function MapViewer({
     fetch('/subway-lines.geojson')
       .then((r) => r.json())
       .then((data) => {
-        const raw = new Map<string, { segs: { lat: number; lng: number }[][]; colour: string }>();
+        const raw = new Map<string, { segs: { lat: number; lng: number }[][]; allCoords: { lat: number; lng: number }[]; colour: string }>();
         for (const feature of data.features) {
           if (feature.geometry.type !== 'LineString') continue;
           const ref: string = feature.properties.ref;
@@ -123,12 +124,13 @@ export default function MapViewer({
           const coords = (feature.geometry.coordinates as [number, number][]).map(
             ([lng, lat]) => ({ lat, lng })
           );
-          if (!raw.has(ref)) raw.set(ref, { segs: [], colour });
+          if (!raw.has(ref)) raw.set(ref, { segs: [], allCoords: [], colour });
           raw.get(ref)!.segs.push(coords);
+          raw.get(ref)!.allCoords.push(...coords);
         }
         const map = new Map<string, SubwayLineData>();
-        raw.forEach(({ segs, colour }, ref) => {
-          map.set(ref, { segments: mergeSegments(segs), colour });
+        raw.forEach(({ segs, allCoords, colour }, ref) => {
+          map.set(ref, { segments: mergeSegments(segs), allCoords, colour });
         });
         setSubwayLines(map);
       })
@@ -138,7 +140,7 @@ export default function MapViewer({
 
   function resolveSubwayRef(routeShortName?: string): string | undefined {
     if (!routeShortName) return undefined;
-    if (routeShortName.includes('동해선')) return '동해선';
+    if (routeShortName.includes('동해')) return '동해선';
     return routeShortName.match(/\d+/)?.[0];
   }
 
@@ -150,34 +152,30 @@ export default function MapViewer({
     const lineData = subwayLines.get(ref);
     if (!lineData || lineData.segments.length === 0) return leg.coords;
 
-    const boardLat = leg.coords[0].lat;
-    const boardLng = leg.coords[0].lng;
+    const boardLat = leg.coords[0].lat, boardLng = leg.coords[0].lng;
     const alightLat = leg.coords[leg.coords.length - 1].lat;
     const alightLng = leg.coords[leg.coords.length - 1].lng;
 
-    // 각 세그먼트에서 탑승/하차역까지의 최근접점 탐색
-    let boardSegIdx = 0, boardPtIdx = 0, minBoardDist = Infinity;
-    let alightSegIdx = 0, alightPtIdx = 0, minAlightDist = Infinity;
+    let boardSegIdx = 0, boardPtIdx = 0, minBD = Infinity;
+    let alightSegIdx = 0, alightPtIdx = 0, minAD = Infinity;
 
     lineData.segments.forEach((seg, si) => {
       for (let i = 0; i < seg.length; i++) {
-        const dBoard  = (seg[i].lat - boardLat) ** 2 + (seg[i].lng - boardLng) ** 2;
-        const dAlight = (seg[i].lat - alightLat) ** 2 + (seg[i].lng - alightLng) ** 2;
-        if (dBoard  < minBoardDist)  { minBoardDist  = dBoard;  boardSegIdx  = si; boardPtIdx  = i; }
-        if (dAlight < minAlightDist) { minAlightDist = dAlight; alightSegIdx = si; alightPtIdx = i; }
+        const dB = (seg[i].lat - boardLat) ** 2 + (seg[i].lng - boardLng) ** 2;
+        const dA = (seg[i].lat - alightLat) ** 2 + (seg[i].lng - alightLng) ** 2;
+        if (dB < minBD) { minBD = dB; boardSegIdx = si; boardPtIdx = i; }
+        if (dA < minAD) { minAD = dA; alightSegIdx = si; alightPtIdx = i; }
       }
     });
 
-    // 같은 세그먼트 → 단순 slice
     if (boardSegIdx === alightSegIdx) {
       const seg = lineData.segments[boardSegIdx];
-      const start = Math.min(boardPtIdx, alightPtIdx);
-      const end   = Math.max(boardPtIdx, alightPtIdx);
-      const slice = seg.slice(start, end + 1);
+      const from = Math.min(boardPtIdx, alightPtIdx);
+      const to   = Math.max(boardPtIdx, alightPtIdx);
+      const slice = seg.slice(from, to + 1);
       return slice.length >= 2 ? slice : leg.coords;
     }
 
-    // 다른 세그먼트 → 데이터 갭이 있는 경우. 직선(leg.coords)으로 폴백
     return leg.coords;
   }
 
@@ -306,8 +304,8 @@ export default function MapViewer({
         strokeWeight: weight, strokeColor: color,
         strokeOpacity: opacity, strokeStyle: style, zIndex: 2,
       });
-      const onOver = () => { base.setOptions({ strokeWeight: weight + 7 }); overlay.setOptions({ strokeWeight: weight + 3 }); };
-      const onOut  = () => { base.setOptions({ strokeWeight: weight + 4 }); overlay.setOptions({ strokeWeight: weight }); };
+      const onOver = () => { isOverPolylineRef.current = true;  base.setOptions({ strokeWeight: weight + 7 }); overlay.setOptions({ strokeWeight: weight + 3 }); };
+      const onOut  = () => { isOverPolylineRef.current = false; base.setOptions({ strokeWeight: weight + 4 }); overlay.setOptions({ strokeWeight: weight }); };
       kakao.event.addListener(base,    'mouseover', onOver);
       kakao.event.addListener(base,    'mouseout',  onOut);
       kakao.event.addListener(overlay, 'mouseover', onOver);
@@ -390,7 +388,7 @@ export default function MapViewer({
       onClick={() => setContextMenu(null)}
       onContextMenu={(e) => {
         e.preventDefault();
-        if (activeLegs && activeLegs.length > 0) {
+        if (activeLegs && activeLegs.length > 0 && isOverPolylineRef.current) {
           setContextMenu({ x: e.clientX, y: e.clientY });
         }
       }}
