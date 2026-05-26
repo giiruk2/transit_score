@@ -383,7 +383,7 @@ export default function Home() {
                   {savedRoutes.map((route) => (
                     <div
                       key={route.id}
-                      className="rounded-xl px-3 py-2.5 cursor-pointer transition-all hover:opacity-80"
+                      className="rounded-xl px-3 py-3 cursor-pointer transition-all hover:opacity-80"
                       style={{ background: 'var(--panel-surface)' }}
                       onClick={() => {
                         const attraction = attractions.find((a) => a.id === route.attractionId);
@@ -395,44 +395,81 @@ export default function Home() {
                         }
                       }}
                     >
-                      {editingRouteId === route.id ? (
-                        <input
-                          autoFocus
-                          value={editingRouteName}
-                          onChange={(e) => setEditingRouteName(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                          onBlur={() => { if (editingRouteName.trim()) renameRoute(route.id, editingRouteName.trim()); setEditingRouteId(null); }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') { if (editingRouteName.trim()) renameRoute(route.id, editingRouteName.trim()); setEditingRouteId(null); }
-                            if (e.key === 'Escape') setEditingRouteId(null);
-                          }}
-                          className="w-full text-[12px] font-semibold bg-transparent border-b pb-0.5"
-                          style={{ color: 'var(--panel-text)', borderColor: 'var(--accent)' }}
-                        />
-                      ) : (
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--panel-text)' }}>{route.name}</p>
-                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--panel-text-muted)' }}>
-                              {new Date(route.createdAt).toLocaleDateString('ko-KR')}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingRouteId(route.id); setEditingRouteName(route.name); }}
-                              className="text-[10px] px-2 py-0.5 rounded-lg"
-                              style={{ background: 'rgba(73,180,222,0.15)', color: 'var(--accent)' }}
-                            >
-                              수정
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); removeRoute(route.id); }}
-                              className="text-[11px] w-5 h-5 flex items-center justify-center rounded"
-                              style={{ color: 'var(--panel-text-muted)' }}
-                            >✕</button>
-                          </div>
+                      {/* 경로 이름 */}
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        {editingRouteId === route.id ? (
+                          <input
+                            autoFocus
+                            value={editingRouteName}
+                            onChange={(e) => setEditingRouteName(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            onBlur={() => { if (editingRouteName.trim()) renameRoute(route.id, editingRouteName.trim()); setEditingRouteId(null); }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { if (editingRouteName.trim()) renameRoute(route.id, editingRouteName.trim()); setEditingRouteId(null); }
+                              if (e.key === 'Escape') setEditingRouteId(null);
+                            }}
+                            className="flex-1 text-[12px] font-semibold bg-transparent border-b pb-0.5"
+                            style={{ color: 'var(--panel-text)', borderColor: 'var(--accent)' }}
+                          />
+                        ) : (
+                          <p className="flex-1 text-[12px] font-semibold truncate" style={{ color: 'var(--panel-text)' }}>{route.name}</p>
+                        )}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEditingRouteId(route.id); setEditingRouteName(route.name); }}
+                            className="text-[10px] px-2 py-0.5 rounded-lg"
+                            style={{ background: 'rgba(73,180,222,0.15)', color: 'var(--accent)' }}
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeRoute(route.id); }}
+                            className="text-[11px] w-5 h-5 flex items-center justify-center rounded"
+                            style={{ color: 'var(--panel-text-muted)' }}
+                          >✕</button>
                         </div>
-                      )}
+                      </div>
+
+                      {/* 출발지 → 목적지 시각화 */}
+                      <div className="flex items-center gap-2">
+                        {/* 출발지 */}
+                        <div className="flex flex-col items-center gap-1 w-16 shrink-0">
+                          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                            style={{ background: 'rgba(73,180,222,0.12)', border: '1px solid rgba(73,180,222,0.25)' }}>
+                            📍
+                          </div>
+                          <p className="text-[9px] font-semibold text-center leading-tight line-clamp-2 w-full" style={{ color: 'var(--panel-text-muted)' }}>
+                            {route.originName}
+                          </p>
+                        </div>
+
+                        {/* 점선 화살표 */}
+                        <div className="flex-1 flex items-center justify-center" style={{ marginBottom: '12px' }}>
+                          <svg width="100%" height="20" viewBox="0 0 80 20" preserveAspectRatio="none">
+                            <path d="M4,10 Q20,2 40,10 Q60,18 76,10" fill="none" stroke="var(--panel-text-muted)" strokeWidth="1.5" strokeDasharray="4,3" />
+                            <polygon points="76,7 80,10 76,13" fill="var(--panel-text-muted)" />
+                          </svg>
+                        </div>
+
+                        {/* 목적지 */}
+                        <div className="flex flex-col items-center gap-1 w-16 shrink-0">
+                          {attractions.find((a) => a.id === route.attractionId)?.imageUrl ? (
+                            <img
+                              src={attractions.find((a) => a.id === route.attractionId)!.imageUrl!}
+                              alt={route.attractionName}
+                              className="w-12 h-12 rounded-xl object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                              style={{ background: 'rgba(73,180,222,0.12)', border: '1px solid rgba(73,180,222,0.25)' }}>
+                              🏛️
+                            </div>
+                          )}
+                          <p className="text-[9px] font-semibold text-center leading-tight line-clamp-2 w-full" style={{ color: 'var(--panel-text-muted)' }}>
+                            {route.attractionName}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -50,7 +50,6 @@ export default function SearchBar({
           <h1 className="font-extrabold tracking-tight" style={{ fontSize: 'var(--font-lg)', color: 'var(--panel-text)' }}>
             Transit<span style={{ color: 'var(--accent)' }}>Score</span>
           </h1>
-          <p style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>부산 관광지 대중교통 접근성</p>
         </div>
       </div>
 

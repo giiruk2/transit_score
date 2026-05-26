@@ -98,18 +98,18 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
             onClick={() => setExpanded(true)}
             className="flex items-center gap-5 px-6 py-4 rounded-[12px] active:scale-95"
             style={{
-              background: 'rgba(255,255,255,0.96)',
+              background: highlighted ? 'transparent' : 'rgba(255,255,255,0.96)',
               backdropFilter: 'blur(12px)',
               transition: 'all 0.3s ease',
             }}
           >
             <div className="flex flex-col items-start">
-              <span className="text-[13px] font-bold tracking-wider" style={{ color: 'var(--panel-text-muted)' }}>출발지</span>
-              <span className="text-[20px] font-semibold max-w-[240px] truncate leading-tight" style={{ color: 'var(--panel-text)' }}>
+              <span className="text-[13px] font-bold tracking-wider" style={{ color: highlighted ? 'rgba(255,255,255,0.8)' : 'var(--panel-text-muted)' }}>출발지</span>
+              <span className="text-[20px] font-semibold max-w-[240px] truncate leading-tight" style={{ color: highlighted ? '#fff' : 'var(--panel-text)' }}>
                 {currentOrigin.name}
               </span>
             </div>
-            <span className="text-[13px] px-3 py-1.5 rounded-lg font-semibold shrink-0" style={{ background: 'rgba(73,180,222,0.15)', color: 'var(--accent)' }}>
+            <span className="text-[13px] px-3 py-1.5 rounded-lg font-semibold shrink-0" style={{ background: highlighted ? 'rgba(255,255,255,0.25)' : 'rgba(73,180,222,0.15)', color: highlighted ? '#fff' : 'var(--accent)' }}>
               변경
             </span>
           </button>
