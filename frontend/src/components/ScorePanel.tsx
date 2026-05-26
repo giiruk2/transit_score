@@ -356,7 +356,7 @@ export default function ScorePanel({
                   <p className="font-bold text-base mb-0.5" style={{ color: gradeStyle?.color }}>{gradeStyle?.label}</p>
                   <p style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>{gradeStyle?.desc}</p>
                   <p className="mt-1 font-semibold" style={{ fontSize: 'var(--font-sm)', color: 'var(--panel-text)' }}>
-                    GTT {scoreData.gtt}분
+                    GTT {scoreData.gtt}점
                     <span className="ml-1 font-normal" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>
                       (환산 이동시간)
                     </span>
@@ -490,7 +490,7 @@ export default function ScorePanel({
                     style={{ borderTop: '1px solid var(--panel-border)' }}
                   >
                     <span className="font-bold" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>GTT 합계</span>
-                    <span className="font-bold" style={{ fontSize: 'var(--font-sm)', color: gradeStyle?.color }}>{scoreData.gtt}분</span>
+                    <span className="font-bold" style={{ fontSize: 'var(--font-sm)', color: gradeStyle?.color }}>{scoreData.gtt}점</span>
                   </div>
                 </div>
 
