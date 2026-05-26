@@ -94,76 +94,85 @@ interface ScoreDetails {
   };
 }
 
-// ── 고도 프로파일 미니 차트 ───────────────────────────────────────────────────
-function ElevationChart({ legs }: { legs?: RouteLeg[] }) {
-  if (!legs) return null;
-
-  // 도보 leg 중 elevationProfile이 있는 것만 합산
-  const allPoints: ElevationPoint[] = [];
-  for (const leg of legs) {
-    if (leg.mode === 'walk' && leg.elevationProfile && leg.elevationProfile.length > 0) {
-      allPoints.push(...leg.elevationProfile);
-    }
-  }
-  if (allPoints.length < 2) return null;
-
-  const elevs = allPoints.map((p) => p.elevation);
-  const minE = Math.min(...elevs);
-  const maxE = Math.max(...elevs);
-  const range = Math.max(maxE - minE, 5); // 최소 5m 범위
-
+// ── 고도 프로파일 미니 차트 (도보 leg별, 공유 스케일) ───────────────────────
+function ElevationMiniChart({ points: allPoints, idx, globalMin, globalRange }: {
+  points: ElevationPoint[];
+  idx: number;
+  globalMin: number;
+  globalRange: number;
+}) {
   const W = 240;
-  const H = 48;
+  const H = 44;
   const pad = 4;
 
-  const points = allPoints.map((p, i) => {
+  const elevs = allPoints.map((p) => p.elevation);
+  const maxE = Math.max(...elevs);
+
+  const svgPoints = allPoints.map((p, i) => {
     const x = pad + ((i / (allPoints.length - 1)) * (W - pad * 2));
-    const y = H - pad - (((p.elevation - minE) / range) * (H - pad * 2));
+    const y = H - pad - (((p.elevation - globalMin) / globalRange) * (H - pad * 2));
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
 
+  const maxIdx = elevs.indexOf(maxE);
+  const maxX = pad + ((maxIdx / (allPoints.length - 1)) * (W - pad * 2));
+  const maxY = H - pad - (((maxE - globalMin) / globalRange) * (H - pad * 2));
+
   return (
-    <div className="mt-3">
+    <div className="mt-2">
       <p className="mb-1" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
-        📈 도보 구간 고도 프로파일
+        🚶 도보 {idx + 1}구간 고도 프로파일
       </p>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
         <defs>
-          <linearGradient id="elevGrad" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`elevGrad${idx}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
             <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
           </linearGradient>
         </defs>
-        {/* 채움 영역 */}
-        <polygon
-          points={`${pad},${H - pad} ${points} ${W - pad},${H - pad}`}
-          fill="url(#elevGrad)"
-        />
-        {/* 선 */}
-        <polyline
-          points={points}
-          fill="none"
-          stroke="#3b82f6"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-        {/* 최고점 표시 */}
-        {maxE - minE >= 5 && (() => {
-          const maxIdx = elevs.indexOf(maxE);
-          const x = pad + ((maxIdx / (allPoints.length - 1)) * (W - pad * 2));
-          const y = H - pad - (((maxE - minE) / range) * (H - pad * 2));
-          return (
-            <g>
-              <circle cx={x} cy={y} r={3} fill="#ef4444" />
-              <text x={x + 4} y={y - 2} fontSize={8} fill="#ef4444">{maxE}m</text>
-            </g>
-          );
-        })()}
+        <polygon points={`${pad},${H - pad} ${svgPoints} ${W - pad},${H - pad}`} fill={`url(#elevGrad${idx})`} />
+        <polyline points={svgPoints} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinejoin="round" />
+        {globalRange >= 5 && (
+          <g>
+            <circle cx={maxX} cy={maxY} r={3} fill="#ef4444" />
+            <text
+              x={maxX > W * 0.75 ? maxX - 4 : maxX + 4}
+              y={maxY > 10 ? maxY - 4 : maxY + 10}
+              fontSize={8}
+              fill="#ef4444"
+              textAnchor={maxX > W * 0.75 ? 'end' : 'start'}
+            >{maxE}m</text>
+          </g>
+        )}
       </svg>
       <div className="flex justify-between mt-0.5" style={{ fontSize: '9px', color: 'var(--panel-text-muted)' }}>
         <span>출발</span>
         <span>도착</span>
       </div>
+    </div>
+  );
+}
+
+function ElevationChart({ legs }: { legs?: RouteLeg[] }) {
+  if (!legs) return null;
+
+  const walkLegs = legs.filter((l) => l.mode === 'walk' && l.elevationProfile && l.elevationProfile.length >= 2);
+  if (walkLegs.length === 0) return null;
+
+  // 전체 도보 구간의 공통 min/max
+  const allElevs = walkLegs.flatMap((l) => l.elevationProfile!.map((p) => p.elevation));
+  const globalMin = Math.min(...allElevs);
+  const globalMax = Math.max(...allElevs);
+  const globalRange = Math.max(globalMax - globalMin, 5);
+
+  return (
+    <div className="mt-3">
+      <p className="mb-1 font-semibold" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
+        📈 도보 구간 고도 프로파일
+      </p>
+      {walkLegs.map((leg, i) => (
+        <ElevationMiniChart key={i} points={leg.elevationProfile!} idx={i} globalMin={globalMin} globalRange={globalRange} />
+      ))}
     </div>
   );
 }
