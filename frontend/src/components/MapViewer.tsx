@@ -89,13 +89,23 @@ export default function MapViewer({
           const distTailTail = Math.abs(tail.lat - sTail.lat) + Math.abs(tail.lng - sTail.lng);
           const distHeadHead = Math.abs(head.lat - sHead.lat) + Math.abs(head.lng - sHead.lng);
           const distHeadTail = Math.abs(head.lat - sTail.lat) + Math.abs(head.lng - sTail.lng);
+
+          // 한쪽 끝점이 매치되어 머지하려 할 때, "반대쪽 끝점 짝"이 가까우면
+          // 같은 노선의 반대방향(또는 중복) 세그먼트 → 머지하면 U자 루프가 됨.
+          // 종점 상·하행 플랫폼 위치 차이를 감안해 임계값은 ~1km로 느슨하게.
+          const LOOP = 0.01;
+
           if (distTailHead < THRESHOLD) {
+            if (distHeadTail < LOOP) continue;
             current = [...current, ...s.slice(1)];
           } else if (distTailTail < THRESHOLD) {
+            if (distHeadHead < LOOP) continue;
             current = [...current, ...s.slice(0, -1).reverse()];
           } else if (distHeadHead < THRESHOLD) {
+            if (distTailTail < LOOP) continue;
             current = [...s.slice(1).reverse(), ...current];
           } else if (distHeadTail < THRESHOLD) {
+            if (distTailHead < LOOP) continue;
             current = [...s, ...current.slice(1)];
           } else {
             continue;
@@ -156,27 +166,39 @@ export default function MapViewer({
     const alightLat = leg.coords[leg.coords.length - 1].lat;
     const alightLng = leg.coords[leg.coords.length - 1].lng;
 
-    let boardSegIdx = 0, boardPtIdx = 0, minBD = Infinity;
-    let alightSegIdx = 0, alightPtIdx = 0, minAD = Infinity;
+    // 각 세그먼트별로 board/alight 최근접점을 따로 구한 뒤,
+    // board+alight 합산 거리가 가장 작은 세그먼트 한 곳에서만 slice.
+    // (같은 노선의 상/하행이 별도 segment로 남아있어도 한쪽 방향만 깔끔히 그려짐)
+    let bestSegIdx = -1;
+    let bestBoardPt = 0;
+    let bestAlightPt = 0;
+    let bestSum = Infinity;
 
     lineData.segments.forEach((seg, si) => {
+      let bDist = Infinity, bIdx = 0;
+      let aDist = Infinity, aIdx = 0;
       for (let i = 0; i < seg.length; i++) {
         const dB = (seg[i].lat - boardLat) ** 2 + (seg[i].lng - boardLng) ** 2;
         const dA = (seg[i].lat - alightLat) ** 2 + (seg[i].lng - alightLng) ** 2;
-        if (dB < minBD) { minBD = dB; boardSegIdx = si; boardPtIdx = i; }
-        if (dA < minAD) { minAD = dA; alightSegIdx = si; alightPtIdx = i; }
+        if (dB < bDist) { bDist = dB; bIdx = i; }
+        if (dA < aDist) { aDist = dA; aIdx = i; }
+      }
+      const sum = bDist + aDist;
+      if (sum < bestSum) {
+        bestSum = sum;
+        bestSegIdx = si;
+        bestBoardPt = bIdx;
+        bestAlightPt = aIdx;
       }
     });
 
-    if (boardSegIdx === alightSegIdx) {
-      const seg = lineData.segments[boardSegIdx];
-      const from = Math.min(boardPtIdx, alightPtIdx);
-      const to   = Math.max(boardPtIdx, alightPtIdx);
-      const slice = seg.slice(from, to + 1);
-      return slice.length >= 2 ? slice : leg.coords;
-    }
+    if (bestSegIdx < 0) return leg.coords;
 
-    return leg.coords;
+    const seg = lineData.segments[bestSegIdx];
+    const start = Math.min(bestBoardPt, bestAlightPt);
+    const end   = Math.max(bestBoardPt, bestAlightPt);
+    const slice = seg.slice(start, end + 1);
+    return slice.length >= 2 ? slice : leg.coords;
   }
 
   function getSubwayColour(leg: RouteLeg): string {
@@ -204,6 +226,25 @@ export default function MapViewer({
     };
     fetchAttractions();
   }, [onAttractionsLoaded]);
+
+  // 컨테이너 크기 변경 감지 → Kakao Map relayout (사이드바 접기 등 외부 폭 변경 시 잘림 방지)
+  useEffect(() => {
+    if (!mapInstance) return;
+    const node: HTMLElement | undefined = mapInstance.getNode?.();
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const ro = new ResizeObserver(() => {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        mapInstance.relayout();
+      }, 80);
+    });
+    ro.observe(node);
+    return () => {
+      ro.disconnect();
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [mapInstance]);
 
   // 목적지 선택 시 출발지+목적지 둘 다 보이도록 bounds 조정
   useEffect(() => {
@@ -411,13 +452,12 @@ export default function MapViewer({
       >
         <button
           onClick={() => { setContextMenu(null); onSaveRoute?.(); }}
+          className="block w-full text-left cursor-pointer transition-colors hover:bg-[rgba(73,180,222,0.1)]"
           style={{
-            display: 'block', width: '100%', padding: '10px 16px',
-            textAlign: 'left', fontSize: '13px', fontWeight: 600,
-            color: '#1a1a1a', background: 'transparent', cursor: 'pointer',
+            padding: '10px 16px',
+            fontSize: '13px', fontWeight: 600,
+            color: '#1a1a1a', background: 'transparent',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(73,180,222,0.1)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
         >
           경로 저장
         </button>

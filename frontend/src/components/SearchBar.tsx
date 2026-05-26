@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Attraction } from '@/app/page';
+import { IconSearch, IconPin } from '@/components/icons';
 
 interface SearchBarProps {
   searchQuery: string;
@@ -56,26 +57,20 @@ export default function SearchBar({
       {/* 관광지 검색 + 드롭다운 */}
       <div className="relative mb-3">
         <div className="relative">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base">🔍</span>
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--accent)' }}>
+            <IconSearch size={16} />
+          </span>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => { onSearch(e.target.value); setDropdownOpen(true); }}
-            onFocus={(e) => {
-              setDropdownOpen(true);
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(73,180,222,0.35)';
-              e.currentTarget.style.borderColor = 'var(--accent)';
-            }}
-            onBlur={(e) => {
-              setTimeout(() => setDropdownOpen(false), 150);
-              e.currentTarget.style.boxShadow = '0 0 0 2px rgba(73,180,222,0.2)';
-              e.currentTarget.style.borderColor = 'rgba(73,180,222,0.6)';
-            }}
+            onFocus={() => setDropdownOpen(true)}
+            onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
             onKeyDown={(e) => {
               if (e.key === 'Escape') { onSearch(''); setDropdownOpen(false); }
             }}
             placeholder="관광지명 또는 주소로 검색..."
-            className="w-full pl-10 pr-8 rounded-xl font-medium placeholder-gray-400 outline-none transition-all"
+            className="search-input w-full pl-10 pr-8 rounded-xl font-medium placeholder-gray-400 transition-all"
             style={{
               fontSize: 'var(--font-sm)',
               color: 'var(--panel-text)',
@@ -106,17 +101,17 @@ export default function SearchBar({
               return (
                 <div
                   key={attraction.id}
-                  className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-all"
+                  className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-all hover:bg-[var(--panel-surface)]"
                   style={{ borderBottom: '1px solid var(--panel-border)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--panel-surface)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   onClick={() => handleSelectFromDropdown(attraction)}
                 >
                   {/* 썸네일 */}
                   <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-gray-200">
                     {attraction.imageUrl
                       ? <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" />
-                      : <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">📍</div>
+                      : <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <IconPin size={16} strokeWidth={1.5} />
+                        </div>
                     }
                   </div>
                   {/* 텍스트 */}

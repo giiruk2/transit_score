@@ -14,6 +14,7 @@ import { useSavedRoutes } from '@/hooks/useSavedRoutes';
 import LoginButton from '@/components/LoginButton';
 import OriginPanel from '@/components/OriginPanel';
 import { signInWithGoogle } from '@/lib/auth';
+import { IconMap, IconRoute, IconUser, IconSettings, IconPin, IconPencil, IconSparkle, IconChevronLeft, IconChevronRight } from '@/components/icons';
 
 // 관광지 데이터 타입
 export interface Attraction {
@@ -150,6 +151,28 @@ export default function Home() {
   const [categoryOpen, setCategoryOpen] = useState(true);
   const [dongCenters, setDongCenters] = useState<Record<string, { lat: number; lng: number }>>({});
 
+  // 사이드바 접기 (localStorage로 상태 보존)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('sidebarCollapsed') === 'true') {
+      setSidebarCollapsed(true);
+    }
+  }, []);
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      try { localStorage.setItem('sidebarCollapsed', String(next)); } catch {}
+      return next;
+    });
+  }, []);
+  const handleTabClick = useCallback((id: 'attractions' | 'routes' | 'profile' | 'weights') => {
+    setActiveTab(id);
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+      try { localStorage.setItem('sidebarCollapsed', 'false'); } catch {}
+    }
+  }, [sidebarCollapsed]);
+
   // dong_centers.json 로드
   useEffect(() => {
     fetch('/dong_centers.json')
@@ -220,9 +243,28 @@ export default function Home() {
     )}
     <main className="w-full h-screen flex overflow-hidden">
       <aside
-        className="h-screen flex shrink-0"
-        style={{ width: 'var(--sidebar-width)', borderRight: '1px solid var(--sidebar-border)' }}
+        className="h-screen flex shrink-0 relative"
+        style={{
+          width: sidebarCollapsed ? '72px' : 'var(--sidebar-width)',
+          borderRight: '1px solid var(--sidebar-border)',
+          transition: 'width 220ms ease',
+        }}
       >
+        {/* 사이드바 접기/펴기 토글 — aside 오른쪽 가장자리에 floating */}
+        <button
+          onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? '사이드바 펴기' : '사이드바 접기'}
+          title={sidebarCollapsed ? '사이드바 펴기' : '사이드바 접기'}
+          className="absolute top-24 -right-3 w-6 h-6 rounded-full flex items-center justify-center transition-all hover:scale-110 z-20"
+          style={{
+            background: 'var(--panel-bg)',
+            border: '1px solid var(--sidebar-border)',
+            color: 'var(--accent)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+          }}
+        >
+          {sidebarCollapsed ? <IconChevronRight size={12} /> : <IconChevronLeft size={12} />}
+        </button>
         {/* 왼쪽 탭 바 */}
         <div
           className="h-full flex flex-col items-center py-4 gap-1 shrink-0"
@@ -235,33 +277,39 @@ export default function Home() {
 
           {/* 탭 버튼 */}
           {([
-            { id: 'attractions', icon: '🗺', label: '관광지' },
-            { id: 'routes',      icon: '🛤', label: '경로' },
-            { id: 'profile',     icon: '👤', label: '내 정보' },
-            { id: 'weights',     icon: '⚙️', label: '설정' },
-          ] as const).map(({ id, icon, label }) => {
-            const isActive = activeTab === id;
+            { id: 'attractions', Icon: IconMap,      label: '관광지' },
+            { id: 'routes',      Icon: IconRoute,    label: '경로' },
+            { id: 'profile',     Icon: IconUser,     label: '내 정보' },
+            { id: 'weights',     Icon: IconSettings, label: '설정' },
+          ] as const).map(({ id, Icon, label }) => {
+            const isActive = activeTab === id && !sidebarCollapsed;
             return (
               <button
                 key={id}
-                onClick={() => setActiveTab(id)}
+                onClick={() => handleTabClick(id)}
                 className="w-12 h-12 flex flex-col items-center justify-center rounded-xl gap-1 transition-all"
                 style={{
                   background: isActive ? 'rgba(59,130,246,0.15)' : 'transparent',
                   border: isActive ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent',
+                  color: isActive ? 'var(--accent-light)' : 'var(--sidebar-text-muted)',
                 }}
               >
-                <span className="text-lg leading-none">{icon}</span>
-                <span className="text-[10px] leading-none" style={{ color: isActive ? 'var(--accent-light)' : 'var(--sidebar-text-muted)' }}>
-                  {label}
-                </span>
+                <Icon size={18} />
+                <span className="text-[10px] leading-none">{label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* 오른쪽 콘텐츠 */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--panel-bg)' }}>
+        {/* 오른쪽 콘텐츠 — collapse 시 부드럽게 잘려나가도록 외부 wrapper로 감쌈 */}
+        <div className="flex-1 overflow-hidden">
+        <div
+          className="flex flex-col overflow-hidden h-full"
+          style={{
+            width: 'calc(var(--sidebar-width) - 72px)',
+            background: 'var(--panel-bg)',
+          }}
+        >
 
           {/* 관광지 탭 */}
           {activeTab === 'attractions' && <>
@@ -335,10 +383,8 @@ export default function Home() {
                   {savedRoutes.map((route) => (
                     <div
                       key={route.id}
-                      className="rounded-xl px-3 py-2.5 cursor-pointer transition-all"
+                      className="rounded-xl px-3 py-2.5 cursor-pointer transition-all hover:opacity-80"
                       style={{ background: 'var(--panel-surface)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
                       onClick={() => {
                         const attraction = attractions.find((a) => a.id === route.attractionId);
                         if (attraction) {
@@ -360,7 +406,7 @@ export default function Home() {
                             if (e.key === 'Enter') { if (editingRouteName.trim()) renameRoute(route.id, editingRouteName.trim()); setEditingRouteId(null); }
                             if (e.key === 'Escape') setEditingRouteId(null);
                           }}
-                          className="w-full text-[12px] font-semibold bg-transparent outline-none border-b pb-0.5"
+                          className="w-full text-[12px] font-semibold bg-transparent border-b pb-0.5"
                           style={{ color: 'var(--panel-text)', borderColor: 'var(--accent)' }}
                         />
                       ) : (
@@ -424,17 +470,17 @@ export default function Home() {
                         .map((a) => (
                           <div
                             key={a.id}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all hover:opacity-80"
                             style={{ background: 'var(--panel-surface)' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
                             onClick={() => { handleSelectAttraction(a); setActiveTab('attractions'); }}
                           >
                             <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-gray-200">
                               {a.imageUrl ? (
                                 <img src={a.imageUrl} alt={a.name} className="w-full h-full object-cover" loading="lazy" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">📍</div>
+                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                  <IconPin size={18} />
+                                </div>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -467,10 +513,11 @@ export default function Home() {
                     savedOrigins.map((o) => (
                       <div
                         key={o.id}
-                        className="flex items-center justify-between px-3 py-2 rounded-lg mb-1 text-[12px]"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1 text-[12px]"
                         style={{ background: 'var(--panel-surface)', color: 'var(--panel-text)' }}
                       >
-                        <span className="truncate flex-1">📍 {o.name}</span>
+                        <IconPin size={13} style={{ color: 'var(--accent)' }} />
+                        <span className="truncate flex-1">{o.name}</span>
                         <button
                           onClick={() => removeSavedOrigin(o.id)}
                           className="ml-2 text-[10px] shrink-0"
@@ -581,7 +628,7 @@ export default function Home() {
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => setShowSurvey(true)}
-                    className="flex-1 py-3 rounded-xl text-[14px] font-bold transition-all hover:brightness-110 active:scale-95"
+                    className="flex-1 py-3 rounded-xl text-[14px] font-bold transition-all hover:brightness-110 active:scale-95 flex items-center justify-center gap-2"
                     style={{
                       background: 'linear-gradient(135deg, #3450A7 0%, #49B4DE 100%)',
                       color: '#fff',
@@ -589,7 +636,8 @@ export default function Home() {
                       border: '1px solid rgba(255,255,255,0.15)',
                     }}
                   >
-                    ✨ 내 취향 설정하기
+                    <IconSparkle size={16} />
+                    <span>내 취향 설정하기</span>
                   </button>
                   {isCustom && (
                     <button
@@ -654,18 +702,19 @@ export default function Home() {
                                 }
                                 if (e.key === 'Escape') setEditingPresetId(null);
                               }}
-                              className="w-full text-[12px] font-semibold bg-transparent outline-none border-b pb-0.5"
+                              className="w-full text-[12px] font-semibold bg-transparent border-b pb-0.5"
                               style={{ color: 'var(--panel-text)', borderColor: 'var(--accent)' }}
                             />
                           ) : (
                             <div className="flex items-center justify-between gap-2">
                               <button
-                                className="text-[12px] font-semibold truncate text-left flex-1"
+                                className="text-[12px] font-semibold truncate text-left flex-1 flex items-center gap-1.5"
                                 style={{ color: 'var(--panel-text)' }}
                                 onClick={() => { setEditingPresetId(preset.id); setEditingPresetName(preset.name); }}
                                 title="클릭하여 이름 변경"
                               >
-                                ✏️ {preset.name}
+                                <IconPencil size={12} style={{ color: 'var(--panel-text-muted)' }} />
+                                <span className="truncate">{preset.name}</span>
                               </button>
                               <div className="flex items-center gap-1 shrink-0">
                                 <button
@@ -716,6 +765,7 @@ export default function Home() {
             </div>
           )}
 
+        </div>
         </div>
       </aside>
 

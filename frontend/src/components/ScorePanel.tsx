@@ -5,6 +5,7 @@ import axios from 'axios';
 import type { Attraction } from '@/app/page';
 import { GttCoefficients, DEFAULT_COEFFICIENTS } from '@/hooks/useWeights';
 import { getUser } from '@/lib/auth';
+import { IconPin, IconWarning, IconWalk, IconBus, IconSubway, IconHourglass, IconTransfer } from '@/components/icons';
 
 const CATEGORY_COLOR: Record<string, { bg: string; text: string }> = {
   '자연':    { bg: 'rgba(34,197,94,0.18)',   text: '#166534' },
@@ -250,7 +251,9 @@ export default function ScorePanel({
           {attraction.imageUrl ? (
             <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-4xl">📍</div>
+            <div className="w-full h-full flex items-center justify-center text-gray-400">
+              <IconPin size={48} strokeWidth={1.5} />
+            </div>
           )}
         </div>
       </div>
@@ -299,8 +302,10 @@ export default function ScorePanel({
               <p className="mt-3" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text-muted)' }}>경로를 분석하고 있습니다...</p>
             </div>
           ) : error || !scoreData ? (
-            <div className="text-center py-6">
-              <span className="text-3xl mb-2 block">⚠️</span>
+            <div className="flex flex-col items-center py-6">
+              <div className="mb-2" style={{ color: 'var(--score-poor)' }}>
+                <IconWarning size={36} strokeWidth={1.8} />
+              </div>
               <p style={{ fontSize: 'var(--font-sm)', color: 'var(--score-poor)' }}>점수를 불러오지 못했습니다.</p>
             </div>
           ) : (
@@ -308,28 +313,31 @@ export default function ScorePanel({
               {/* Fallback 경고 */}
               {scoreData.rawParams.isFallback && scoreData.rawParams.fallbackReason === 'tooClose' && (
                 <div
-                  className="text-[10px] px-3 py-2 rounded-lg mb-3"
+                  className="text-[10px] px-3 py-2 rounded-lg mb-3 flex items-start gap-1.5"
                   style={{ background: 'rgba(73, 180, 222, 0.12)', color: '#0369a1', border: '1px solid rgba(73, 180, 222, 0.3)' }}
                 >
-                  🚶 출발지와 목적지가 너무 가까워 <b>도보 이동 가능</b> 거리입니다.
+                  <IconWalk size={14} className="shrink-0 mt-px" />
+                  <span>출발지와 목적지가 너무 가까워 <b>도보 이동 가능</b> 거리입니다.</span>
                 </div>
               )}
               {scoreData.rawParams.isFallback && scoreData.rawParams.fallbackReason === 'apiError' && (
                 <div
-                  className="text-[10px] px-3 py-2 rounded-lg mb-3"
+                  className="text-[10px] px-3 py-2 rounded-lg mb-3 flex items-start gap-1.5"
                   style={{ background: 'rgba(249, 115, 22, 0.1)', color: 'var(--score-average)', border: '1px solid rgba(249, 115, 22, 0.2)' }}
                 >
-                  ⚠️ 경로 탐색 실패로 <b>직선 경로 기반 추정치</b>입니다.
+                  <IconWarning size={14} className="shrink-0 mt-px" />
+                  <span>경로 탐색 실패로 <b>직선 경로 기반 추정치</b>입니다.</span>
                 </div>
               )}
 
               {/* tMax 초과 경고 */}
               {scoreData.isTMaxExceeded && (
                 <div
-                  className="text-[10px] px-3 py-2 rounded-lg mb-3"
+                  className="text-[10px] px-3 py-2 rounded-lg mb-3 flex items-start gap-1.5"
                   style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
                 >
-                  ⏱ 설정한 최대 이동시간({coefficients.tMax}분)을 초과합니다. ({scoreData.rawParams.totalTimeMin}분 소요)
+                  <IconHourglass size={13} className="shrink-0 mt-px" />
+                  <span>설정한 최대 이동시간({coefficients.tMax}분)을 초과합니다. ({scoreData.rawParams.totalTimeMin}분 소요)</span>
                 </div>
               )}
 
@@ -368,10 +376,11 @@ export default function ScorePanel({
                 )}
                 {scoreData.rawParams.transferCount >= 2 && (
                   <span
-                    className="px-2 py-1 rounded-full"
+                    className="px-2 py-1 rounded-full inline-flex items-center gap-1"
                     style={{ fontSize: 'var(--font-2xs)', background: 'rgba(249,115,22,0.12)', color: 'var(--score-average)', border: '1px solid rgba(249,115,22,0.25)' }}
                   >
-                    🔄 환승 {scoreData.rawParams.transferCount}회
+                    <IconTransfer size={11} />
+                    <span>환승 {scoreData.rawParams.transferCount}회</span>
                   </span>
                 )}
                 {scoreData.rawParams.totalTimeMin > 60 && (
@@ -417,7 +426,10 @@ export default function ScorePanel({
                 <div className="flex flex-col gap-2">
                   {/* 탑승 시간 */}
                   <div className="flex items-center justify-between">
-                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>🚌 탑승 시간</span>
+                    <span className="flex items-center gap-1.5" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>
+                      <IconBus size={14} style={{ color: 'var(--accent)' }} />
+                      <span>탑승 시간</span>
+                    </span>
                     <span className="font-semibold" style={{ fontSize: 'var(--font-sm)', color: 'var(--accent)' }}>
                       {scoreData.breakdown.T_invehicle}분
                     </span>
@@ -425,7 +437,10 @@ export default function ScorePanel({
                   {/* 도보 시간 (경사 보정 표시) */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>🚶 도보 시간</span>
+                      <span className="inline-flex items-center gap-1.5" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>
+                        <IconWalk size={14} style={{ color: '#22c55e' }} />
+                        <span>도보 시간</span>
+                      </span>
                       {scoreData.breakdown.slope_penalty_min !== undefined && scoreData.breakdown.slope_penalty_min >= 0.5 ? (
                         <span className="ml-2" style={{ fontSize: 'var(--font-2xs)', color: '#b45309' }}>
                           {scoreData.breakdown.T_walk_flat}분→{scoreData.breakdown.T_walk_raw}분 (경사 +{scoreData.breakdown.slope_penalty_min}분) × α{coefficients.alpha}
@@ -443,7 +458,10 @@ export default function ScorePanel({
                   {/* 대기 시간 */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>⏳ 대기 시간</span>
+                      <span className="inline-flex items-center gap-1.5" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>
+                        <IconHourglass size={13} style={{ color: '#f59e0b' }} />
+                        <span>대기 시간</span>
+                      </span>
                       <span className="ml-2" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
                         {scoreData.breakdown.T_wait_raw}분 × β{coefficients.beta}
                       </span>
@@ -455,7 +473,10 @@ export default function ScorePanel({
                   {/* 환승 패널티 */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>🔄 환승 패널티</span>
+                      <span className="inline-flex items-center gap-1.5" style={{ fontSize: 'var(--font-xs)', color: 'var(--panel-text)' }}>
+                        <IconTransfer size={14} style={{ color: '#8b5cf6' }} />
+                        <span>환승 패널티</span>
+                      </span>
                       <span className="ml-2" style={{ fontSize: 'var(--font-2xs)', color: 'var(--panel-text-muted)' }}>
                         {scoreData.breakdown.N_transfer}회 × γ{coefficients.gamma}분
                       </span>
@@ -506,10 +527,19 @@ export default function ScorePanel({
                               <span style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: isSelected ? 'var(--accent)' : 'var(--panel-text)' }}>
                                 {modeLabel}
                               </span>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 {route.legs.map((leg, li) => (
-                                  <span key={li} style={{ fontSize: '10px' }}>
-                                    {leg.mode === 'walk' ? '🚶' : leg.mode === 'subway' ? '🚇' : `🚌${leg.routeShortName ?? ''}`}
+                                  <span key={li} className="inline-flex items-center gap-1" style={{ fontSize: '11px', color: 'var(--panel-text-muted)' }}>
+                                    {leg.mode === 'walk' ? (
+                                      <IconWalk size={14} />
+                                    ) : leg.mode === 'subway' ? (
+                                      <IconSubway size={14} />
+                                    ) : (
+                                      <>
+                                        <IconBus size={14} />
+                                        {leg.routeShortName && <span>{leg.routeShortName}</span>}
+                                      </>
+                                    )}
                                   </span>
                                 ))}
                               </div>

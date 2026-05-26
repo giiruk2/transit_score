@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Attraction } from '@/app/page';
+import { IconSearch, IconPin } from '@/components/icons';
 
 interface AttractionListProps {
   attractions: Attraction[];
@@ -115,7 +116,9 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
   if (attractions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-        <span className="text-4xl mb-3">🔍</span>
+        <div className="mb-3" style={{ color: 'var(--panel-text-muted)' }}>
+          <IconSearch size={40} strokeWidth={1.5} />
+        </div>
         <p className="text-sm font-medium" style={{ color: 'var(--panel-text)' }}>검색 결과가 없습니다</p>
         <p className="text-xs mt-1" style={{ color: 'var(--panel-text-muted)' }}>
           &apos;{searchQuery}&apos; 에 해당하는 관광지가 없습니다.
@@ -194,10 +197,8 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
               return (
                 <div
                   key={attraction.id}
-                  className="rounded-xl overflow-hidden cursor-pointer transition-all"
+                  className="rounded-xl overflow-hidden cursor-pointer transition-all hover:opacity-[0.85]"
                   style={{ background: 'var(--panel-surface)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
                   onClick={() => onSelect(attraction)}
                 >
                   {/* 이미지 1:1 */}
@@ -206,7 +207,9 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                       {attraction.imageUrl ? (
                         <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl">📍</div>
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <IconPin size={28} strokeWidth={1.5} />
+                        </div>
                       )}
                     </div>
                     {isLoggedIn && (
@@ -251,10 +254,8 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
               return (
                 <div
                   key={attraction.id}
-                  className="w-full flex rounded-2xl overflow-hidden cursor-pointer transition-all"
+                  className="w-full flex rounded-2xl overflow-hidden cursor-pointer transition-all hover:opacity-[0.85]"
                   style={{ background: 'var(--panel-surface)', height: 'var(--list-card-h)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
                   onClick={() => onSelect(attraction)}
                 >
                   {/* 이미지 */}
@@ -262,7 +263,9 @@ export default function AttractionList({ attractions, onSelect, searchQuery, sco
                     {attraction.imageUrl ? (
                       <img src={attraction.imageUrl} alt={attraction.name} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-3xl">📍</div>
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                        <IconPin size={36} strokeWidth={1.5} />
+                      </div>
                     )}
                     {/* 즐겨찾기 오버레이 */}
                     {isLoggedIn && (

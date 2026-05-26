@@ -74,7 +74,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="이름"
-              className="w-full px-3 py-2.5 rounded-lg text-[12px] text-white placeholder-gray-500 outline-none"
+              className="w-full px-3 py-2.5 rounded-lg text-[12px] text-white placeholder-gray-500"
               style={{ background: 'var(--sidebar-surface)', border: '1px solid var(--sidebar-border)' }}
             />
           )}
@@ -84,7 +84,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (tab === 'login' ? handleLogin() : handleSignup())}
             placeholder="이메일"
-            className="w-full px-3 py-2.5 rounded-lg text-[12px] text-white placeholder-gray-500 outline-none"
+            className="w-full px-3 py-2.5 rounded-lg text-[12px] text-white placeholder-gray-500"
             style={{ background: 'var(--sidebar-surface)', border: '1px solid var(--sidebar-border)' }}
           />
           <input
@@ -93,7 +93,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (tab === 'login' ? handleLogin() : handleSignup())}
             placeholder="비밀번호 (6자 이상)"
-            className="w-full px-3 py-2.5 rounded-lg text-[12px] text-white placeholder-gray-500 outline-none"
+            className="w-full px-3 py-2.5 rounded-lg text-[12px] text-white placeholder-gray-500"
             style={{ background: 'var(--sidebar-surface)', border: '1px solid var(--sidebar-border)' }}
           />
 

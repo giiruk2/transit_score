@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSavedOrigins } from '@/hooks/useSavedOrigins';
+import { IconPin, IconBulb } from '@/components/icons';
 
 interface OriginType {
   name: string;
@@ -134,7 +135,7 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
 
           {/* 현재 출발지 */}
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mb-2.5" style={{ background: 'rgba(73,180,222,0.08)', border: '1px solid rgba(73,180,222,0.2)' }}>
-            <span className="text-sm">📍</span>
+            <IconPin size={14} style={{ color: 'var(--accent)' }} />
             <span className="text-[12px] font-semibold truncate flex-1" style={{ color: 'var(--accent)' }}>{currentOrigin.name}</span>
             {isLoggedIn && (
               <button
@@ -153,13 +154,15 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
               {savedOrigins.map((o) => (
                 <div
                   key={o.id}
-                  className="flex items-center gap-2 px-2.5 py-1.5 text-[11px] cursor-pointer transition-all"
+                  className="flex items-center gap-2 px-2.5 py-1.5 text-[11px] cursor-pointer transition-all hover:bg-[var(--panel-surface)]"
                   style={{ borderBottom: '1px solid var(--panel-border)', color: 'var(--panel-text)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--panel-surface)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <span className="flex-1 truncate" onClick={() => { onOriginChange({ name: o.name, lat: o.lat, lng: o.lng, dongKey: o.dongKey }); setExpanded(false); }}>
-                    📍 {o.name}
+                  <span
+                    className="flex-1 truncate flex items-center gap-1.5"
+                    onClick={() => { onOriginChange({ name: o.name, lat: o.lat, lng: o.lng, dongKey: o.dongKey }); setExpanded(false); }}
+                  >
+                    <IconPin size={12} style={{ color: 'var(--accent)' }} />
+                    <span className="truncate">{o.name}</span>
                   </span>
                   <button onClick={() => remove(o.id)} className="shrink-0" style={{ color: 'var(--panel-text-muted)' }}>✕</button>
                 </div>
@@ -175,7 +178,7 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
               onChange={(e) => setCustomAddress(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddressSearch()}
               placeholder="주소 또는 장소명..."
-              className="flex-1 px-2.5 py-2 rounded-lg text-[12px] placeholder-gray-400 outline-none"
+              className="flex-1 px-2.5 py-2 rounded-lg text-[12px] placeholder-gray-400"
               style={{ color: 'var(--panel-text)', background: 'var(--panel-surface)', border: '1px solid var(--panel-border)' }}
               autoFocus
             />
@@ -188,7 +191,10 @@ export default function OriginPanel({ currentOrigin, onOriginChange }: OriginPan
               {searching ? '...' : '검색'}
             </button>
           </div>
-          <p className="text-[10px] mt-1.5" style={{ color: 'var(--panel-text-muted)' }}>💡 지도를 클릭해도 출발지를 설정할 수 있습니다</p>
+          <p className="text-[10px] mt-1.5 flex items-center gap-1" style={{ color: 'var(--panel-text-muted)' }}>
+            <IconBulb size={11} />
+            <span>지도를 클릭해도 출발지를 설정할 수 있습니다</span>
+          </p>
         </div>
       )}
     </div>
